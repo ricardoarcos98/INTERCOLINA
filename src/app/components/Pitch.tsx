@@ -109,6 +109,21 @@ export const Pitch: React.FC<PitchProps> = ({
   const [laserDrawing, setLaserDrawing] = useState<{ x: number; y: number }[]>([]);
   const lastLaserPoint = useRef<{ x: number; y: number } | null>(null);
   const [ephemeralLaser, setEphemeralLaser] = useState<EphemeralLaserStroke[]>([]);
+  /** Captura el puntero en la cancha para que el trazo no “escape” al scroll ni al pointerleave. */
+  const sketchPointerIdRef = useRef<number | null>(null);
+
+  const tryReleaseSketchCapture = useCallback(() => {
+    const el = pitchRef.current;
+    const id = sketchPointerIdRef.current;
+    if (el != null && id != null) {
+      try {
+        if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
+      } catch {
+        /* ya liberado */
+      }
+    }
+    sketchPointerIdRef.current = null;
+  }, [pitchRef]);
 
   const toPercent = useCallback((clientX: number, clientY: number) => {
     if (!pitchRef.current) return { x: 0, y: 0 };
@@ -122,10 +137,16 @@ export const Pitch: React.FC<PitchProps> = ({
   const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
     Math.hypot(a.x - b.x, a.y - b.y);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (blockField) return;
     if (activeTool === 'draw') {
       e.preventDefault();
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        sketchPointerIdRef.current = e.pointerId;
+      } catch {
+        /* setPointerCapture no disponible */
+      }
       const pt = toPercent(e.clientX, e.clientY);
       setDrawStart(pt);
       setDrawEnd(pt);
@@ -136,6 +157,12 @@ export const Pitch: React.FC<PitchProps> = ({
       onAddOpponent({ id: Math.random().toString(36).substr(2, 9), x: pt.x, y: pt.y });
     } else if (activeTool === 'laser' || activeTool === 'pen') {
       e.preventDefault();
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        sketchPointerIdRef.current = e.pointerId;
+      } catch {
+        /* setPointerCapture no disponible */
+      }
       const pt = toPercent(e.clientX, e.clientY);
       lastLaserPoint.current = pt;
       setLaserDrawing([pt]);
@@ -144,6 +171,11 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (blockField) return;
+    const sketching =
+      (drawing && activeTool === 'draw') ||
+      ((activeTool === 'laser' || activeTool === 'pen') && laserDrawing.length > 0);
+    if (sketching) e.preventDefault();
+
     if (drawing && activeTool === 'draw') {
       setDrawEnd(toPercent(e.clientX, e.clientY));
       return;
@@ -158,6 +190,7 @@ export const Pitch: React.FC<PitchProps> = ({
   };
 
   const handlePointerUp = () => {
+    tryReleaseSketchCapture();
     if (blockField) {
       setLaserDrawing([]);
       lastLaserPoint.current = null;
@@ -337,6 +370,9 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const laserOverlay = !blockField && (activeTool === 'laser' || activeTool === 'pen');
 
+  const sketchTouchLock =
+    !blockField && (activeTool === 'draw' || activeTool === 'pen' || activeTool === 'laser');
+
   const removeEphemeral = useCallback((id: string) => {
     setEphemeralLaser((prev) => prev.filter((s) => s.id !== id));
   }, []);
@@ -344,7 +380,7 @@ export const Pitch: React.FC<PitchProps> = ({
   return (
     <div
       ref={pitchRef}
-      className={`pitch-capture-root relative border-[4px] md:border-[5px] border-white/90 aspect-[2/3] w-full mx-auto overflow-hidden select-none rounded-xl ${cursorClass}`}
+      className={`pitch-capture-root relative border-[4px] md:border-[5px] border-white/90 aspect-[2/3] w-full mx-auto overflow-hidden select-none rounded-xl overscroll-contain ${sketchTouchLock ? 'touch-none' : ''} ${cursorClass}`}
       style={{
         backgroundColor: grassColor,
         boxShadow: '0 0 60px rgba(0,0,0,0.5), inset 0 0 80px rgba(0,0,0,0.15)',
@@ -352,7 +388,7 @@ export const Pitch: React.FC<PitchProps> = ({
       onPointerDown={blockField ? undefined : handlePointerDown}
       onPointerMove={blockField ? undefined : handlePointerMove}
       onPointerUp={blockField ? undefined : handlePointerUp}
-      onPointerLeave={blockField ? undefined : () => { if (drawing || laserDrawing.length) handlePointerUp(); }}
+      onPointerCancel={blockField ? undefined : handlePointerUp}
     >
       {renderGrassTurf()}
 
