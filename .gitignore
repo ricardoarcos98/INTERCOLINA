@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Logs / debug
+*.log
+npm-debug.log*
+.DS_Store
+
+# Local env (no subir claves privadas)
+.env
+.env.local
+.env.*.local
+
+# Editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Vite cache
+.vite/

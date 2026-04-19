@@ -1,0 +1,190 @@
+{
+  "id": "tactic-main",
+  "players": [
+    {
+      "id": "1",
+      "name": "Alisson",
+      "number": 1,
+      "position": "POR",
+      "photoUrl": "https://images.unsplash.com/photo-1632300873131-1dd749c83f97?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 90,
+      "isOnPitch": true
+    },
+    {
+      "id": "2",
+      "name": "Trent A.A.",
+      "number": 66,
+      "position": "DEF",
+      "photoUrl": "https://images.unsplash.com/photo-1731692483675-2dbcbab8a37b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 15,
+      "pitchY": 72,
+      "isOnPitch": true
+    },
+    {
+      "id": "3",
+      "name": "Van Dijk",
+      "number": 4,
+      "position": "DEF",
+      "photoUrl": "https://images.unsplash.com/photo-1570095354203-130e525ae0e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 38,
+      "pitchY": 76,
+      "isOnPitch": true
+    },
+    {
+      "id": "4",
+      "name": "Konate",
+      "number": 5,
+      "position": "DEF",
+      "photoUrl": "https://images.unsplash.com/photo-1647719553090-443503785bc9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 62,
+      "pitchY": 76,
+      "isOnPitch": true
+    },
+    {
+      "id": "5",
+      "name": "Robertson",
+      "number": 26,
+      "position": "DEF",
+      "photoUrl": "https://images.unsplash.com/photo-1610017128786-4a25f0f7756c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 85,
+      "pitchY": 72,
+      "isOnPitch": true
+    },
+    {
+      "id": "6",
+      "name": "Mac Allister",
+      "number": 10,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1746811988723-acb90540aa49?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 35,
+      "pitchY": 58,
+      "isOnPitch": true
+    },
+    {
+      "id": "7",
+      "name": "Szoboszlai",
+      "number": 8,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1617975550828-26af98396018?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 65,
+      "pitchY": 58,
+      "isOnPitch": true
+    },
+    {
+      "id": "8",
+      "name": "Gravenberch",
+      "number": 38,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1660925476980-f0590afabc98?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 20,
+      "pitchY": 38,
+      "isOnPitch": true
+    },
+    {
+      "id": "9",
+      "name": "Salah",
+      "number": 11,
+      "position": "DEL",
+      "photoUrl": "https://images.unsplash.com/photo-1610854847337-ad87c496d4c2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 35,
+      "isOnPitch": true
+    },
+    {
+      "id": "10",
+      "name": "Nunez",
+      "number": 9,
+      "position": "DEL",
+      "photoUrl": "https://images.unsplash.com/photo-1759808944777-a05e2e9d0685?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 80,
+      "pitchY": 38,
+      "isOnPitch": true
+    },
+    {
+      "id": "11",
+      "name": "Diaz",
+      "number": 7,
+      "position": "DEL",
+      "photoUrl": "https://images.unsplash.com/photo-1775005968102-62f13cbad76f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 18,
+      "isOnPitch": true
+    },
+    {
+      "id": "12",
+      "name": "Kelleher",
+      "number": 62,
+      "position": "POR",
+      "photoUrl": "https://images.unsplash.com/photo-1580518324671-c2f0833a3af3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "13",
+      "name": "Gomez",
+      "number": 12,
+      "position": "DEF",
+      "photoUrl": "https://images.unsplash.com/photo-1607080033100-8c851026fc8f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "14",
+      "name": "Endo",
+      "number": 3,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1766247732021-498b394f4e33?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "15",
+      "name": "Jones",
+      "number": 17,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1657957140705-b53707ed0f0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "16",
+      "name": "Jota",
+      "number": 20,
+      "position": "DEL",
+      "photoUrl": "https://images.unsplash.com/photo-1618073193718-23a66109f4e6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "17",
+      "name": "Gakpo",
+      "number": 18,
+      "position": "DEL",
+      "photoUrl": "https://images.unsplash.com/photo-1759701546957-0ac6e568bd9a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    },
+    {
+      "id": "18",
+      "name": "Elliott",
+      "number": 19,
+      "position": "MED",
+      "photoUrl": "https://images.unsplash.com/photo-1770639617574-133439bf6610?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+      "pitchX": 50,
+      "pitchY": 50,
+      "isOnPitch": false
+    }
+  ],
+  "arrows": [],
+  "opponents": [],
+  "formation": "4-2-3-1",
+  "customFormations": [],
+  "savedAt": "2026-04-19T00:23:14.050Z"
+}
