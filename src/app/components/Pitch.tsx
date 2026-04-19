@@ -730,9 +730,9 @@ const PlayerToken: React.FC<{
               crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
               onError={(e) => {
                 const current = e.currentTarget.currentSrc || e.currentTarget.src;
-                const fallback = player.photoUrl;
-                if (fallback && current !== fallback) {
-                  e.currentTarget.src = fallback;
+                const viaProxy = toProxyImageUrl(player.photoUrl);
+                if (player.photoUrl && current !== viaProxy) {
+                  e.currentTarget.src = viaProxy;
                 }
               }}
             />

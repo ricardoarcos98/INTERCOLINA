@@ -15,7 +15,9 @@ import {
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
+  bakeTokenImagesForCapture,
   inlineTokenFaceImagesForCapture,
+  preparePitchDomForCapture,
   waitForTokenFaceImages,
 } from '../utils/pitchExportCapture';
 import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
@@ -323,45 +325,50 @@ function AppContent() {
   const maxPlayersOnPitch = Math.max(0, 11 - sentOffCount);
   const pitchPlayers = players.filter((p) => p.isOnPitch);
   const expectedPitchPhotos = pitchPlayers.filter((p) => !!p.photoUrl).length;
+  const pitchPhotosSignature = pitchPlayers
+  .map((p) => `${p.id}:${p.photoUrl || ''}`)
+  .join('|');
 
   useEffect(() => {
-    if (loading) {
-      setExportImagesReady(false);
-      return;
-    }
-    if (expectedPitchPhotos === 0) {
-      setExportImagesReady(true);
-      return;
-    }
-    const root = pitchRef.current;
-    if (!root) {
-      setExportImagesReady(false);
-      return;
-    }
-    let cancelled = false;
-    let stableTicks = 0;
-    const tick = () => {
-      if (cancelled) return;
-      const loaded = (Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[]).filter(
-        (img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0,
-      ).length;
-      if (loaded >= expectedPitchPhotos) {
-        stableTicks += 1;
-        if (stableTicks >= 3) {
-          setExportImagesReady(true);
-          return;
-        }
-      } else {
-        stableTicks = 0;
-        setExportImagesReady(false);
+  if (loading) {
+    setExportImagesReady((r) => (r ? false : r));
+    return;
+  }
+  if (expectedPitchPhotos === 0) {
+    setExportImagesReady(true);
+    return;
+  }
+  const root = pitchRef.current;
+  if (!root) return;
+
+  setExportImagesReady((r) => (r ? false : r));
+
+  let cancelled = false;
+  let stableTicks = 0;
+  let timerId: number | undefined;
+
+  const tick = () => {
+    if (cancelled) return;
+    const imgs = Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[];
+    const loaded = imgs.filter((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0).length;
+    if (loaded >= expectedPitchPhotos) {
+      stableTicks += 1;
+      if (stableTicks >= 3) {
+        setExportImagesReady(true);
+        return;
       }
-      window.setTimeout(tick, 120);
-    };
-    tick();
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, expectedPitchPhotos, pitchPlayers.length]);
+    } else {
+      stableTicks = 0;
+    }
+    timerId = window.setTimeout(tick, 120);
+  };
+  tick();
+
+  return () => {
+    cancelled = true;
+    if (timerId !== undefined) window.clearTimeout(timerId);
+  };
+}, [loading, expectedPitchPhotos, pitchPhotosSignature]);
 
   const tacticSnapshot = useRef({
     players,
@@ -820,26 +827,46 @@ function AppContent() {
         toast.error('No se pudieron preparar todas las fotos para la descarga. Reintenta en 1-2 segundos.');
         return null;
       }
+      const undoBaked = bakeTokenImagesForCapture(root);
+      if (expectedPhotos > 0) {
+        // Tras inline/bake, Safari puede tardar un frame extra en reflejar naturalWidth.
+        await waitForTokenFaceImages(root, expectedPhotos, 5000);
+      }
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       await new Promise<void>((r) => setTimeout(r, 200));
       try {
-        const canvas = await html2canvas(root, {
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: null,
-          scale: 2,
-          imageTimeout: 20000,
-          logging: false,
-        });
-        return canvas.toDataURL('image/png');
-      } catch {
-        return await toPng(root, {
-          cacheBust: true,
-          pixelRatio: 2,
-          skipFonts: true,
-          fetchRequestInit: { mode: 'cors', credentials: 'omit' },
-        });
+        const undoPaint = preparePitchDomForCapture(root);
+        try {
+          const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+          const isSafari =
+            /Safari/i.test(ua) &&
+            !/Chrome|Chromium|CriOS|FxiOS|EdgiOS/i.test(ua);
+          if (!isSafari) {
+            try {
+              const canvas = await html2canvas(root, {
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: null,
+                scale: 2,
+                imageTimeout: 20000,
+                logging: false,
+              });
+              return canvas.toDataURL('image/png');
+            } catch {
+              // Fallback below (html-to-image)
+            }
+          }
+          return await toPng(root, {
+            cacheBust: true,
+            pixelRatio: 2,
+            skipFonts: true,
+            fetchRequestInit: { mode: 'cors', credentials: 'omit' },
+          });
+        } finally {
+          undoPaint();
+        }
       } finally {
+        undoBaked();
         undoInline();
       }
     } catch (err) {

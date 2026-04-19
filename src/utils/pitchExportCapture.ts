@@ -48,7 +48,10 @@ export function preparePitchDomForCapture(root: HTMLElement): () => void {
 
   root.querySelectorAll('.pitch-token-face').forEach((el) => set(el, 'transform', 'scale(1)'));
 
+  let undone = false;
   return () => {
+    if (undone) return;
+    undone = true;
     revert.reverse().forEach((fn) => fn());
   };
 }
@@ -101,7 +104,12 @@ export function bakeTokenImagesForCapture(root: HTMLElement): () => void {
     });
   });
 
-  return () => undo.reverse().forEach((fn) => fn());
+  let undone = false;
+  return () => {
+    if (undone) return;
+    undone = true;
+    undo.reverse().forEach((fn) => fn());
+  };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -173,7 +181,12 @@ export async function inlinePitchImagesForCapture(
     }),
   );
 
-  return () => undo.reverse().forEach((fn) => fn());
+  let undone = false;
+  return () => {
+    if (undone) return;
+    undone = true;
+    undo.reverse().forEach((fn) => fn());
+  };
 }
 
 /**
@@ -191,28 +204,41 @@ export async function inlineTokenFaceImagesForCapture(
   const fetchAsBlob = async (url: string): Promise<Blob | null> => {
     try {
       const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-      if (!res.ok) return null;
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.startsWith('image/')) return null;
-      return await res.blob();
-    } catch {
+      if (!res.ok) {
+        console.warn('[inline-token] fetch non-ok', res.status, url.slice(0, 120));
+        return null;
+      }
+      const blob = await res.blob();
+      if (blob.size === 0) {
+        console.warn('[inline-token] empty blob', url.slice(0, 120));
+        return null;
+      }
+      return blob;
+    } catch (err) {
+      console.warn('[inline-token] fetch threw', url.slice(0, 120), err);
       return null;
     }
   };
 
   for (const img of imgs) {
     const src = img.currentSrc || img.src;
-    if (!src || src.startsWith('data:')) {
-      inlinedCount += src.startsWith('data:') ? 1 : 0;
+    if (!src) continue;
+    if (src.startsWith('data:')) {
+      inlinedCount += 1;
       continue;
     }
     const prev = { src: img.src, srcset: img.srcset };
     let blob = await fetchAsBlob(src);
     if (!blob && opts?.proxyBase && /^https?:\/\//i.test(src)) {
       const proxied = `${opts.proxyBase.replace(/\/$/, '')}/image-proxy?url=${encodeURIComponent(src)}`;
-      blob = await fetchAsBlob(proxied);
+      if (proxied !== src) {
+        blob = await fetchAsBlob(proxied);
+      }
     }
-    if (!blob) continue;
+    if (!blob) {
+      console.warn('[inline-token] giving up on', src.slice(0, 120));
+      continue;
+    }
     const dataUrl = await blobToDataUrl(blob);
     undo.push(() => {
       img.srcset = prev.srcset;
@@ -230,7 +256,13 @@ export async function inlineTokenFaceImagesForCapture(
     inlinedCount += 1;
   }
 
-  return { undo: () => undo.reverse().forEach((fn) => fn()), inlinedCount };
+  let undone = false;
+  const run = () => {
+    if (undone) return;
+    undone = true;
+    undo.reverse().forEach((fn) => fn());
+  };
+  return { undo: run, inlinedCount };
 }
 
 /**
