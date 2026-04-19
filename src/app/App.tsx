@@ -322,6 +322,30 @@ function AppContent() {
     if (activeTool !== 'swap') setSwapPendingId(null);
   }, [activeTool]);
 
+  /** iOS/Safari: sin esto el documento sigue haciendo scroll vertical al trazar flechas en el celular. */
+  useEffect(() => {
+    const editLockedNow = !editUnlocked;
+    const pitchToolsLockedNow = editLockedNow && !focusMode;
+    const sketching =
+      !pitchToolsLockedNow &&
+      (activeTool === 'draw' || activeTool === 'pen' || activeTool === 'laser');
+    if (!sketching) return;
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    const prevTa = body.style.touchAction;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.touchAction = 'none';
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+      body.style.touchAction = prevTa;
+    };
+  }, [activeTool, editUnlocked, focusMode]);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(COACH_STORAGE_KEY);
@@ -725,6 +749,9 @@ function AppContent() {
   const editLocked = !editUnlocked;
   /** Modo foco y césped siguen disponibles con el candado activo. */
   const pitchToolsLocked = editLocked && !focusMode;
+  /** En pantallas chicas el panel central tiene scroll; al rayar flechas/lápiz/láser hay que congelarlo para que no se mueva la vista. */
+  const sketchLocksCenterScroll =
+    !pitchToolsLocked && (activeTool === 'draw' || activeTool === 'pen' || activeTool === 'laser');
 
   const LEGEND = LINE_LEGEND.map(({ line, title, roles }) => ({
     line,
@@ -831,9 +858,11 @@ function AppContent() {
 
       {/* CENTER */}
       <div
-        className={`flex-1 flex flex-col items-center p-3 md:p-4 relative overflow-y-auto min-w-0 ${
-          focusMode ? 'overflow-x-visible' : 'overflow-x-hidden'
-        }`}
+        className={`flex-1 flex flex-col items-center p-3 md:p-4 relative min-w-0 ${
+          sketchLocksCenterScroll
+            ? 'max-md:overflow-y-hidden max-md:touch-none max-md:overscroll-y-contain md:overflow-y-auto'
+            : 'overflow-y-auto'
+        } ${focusMode ? 'overflow-x-visible' : 'overflow-x-hidden'}`}
       >
         {/* Header */}
         {!focusMode && (
