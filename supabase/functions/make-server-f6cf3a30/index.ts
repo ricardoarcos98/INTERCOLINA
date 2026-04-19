@@ -97,6 +97,27 @@ routes.post("/upload-photo", async (c) => {
   }
 });
 
+// Proxy signed storage images with permissive CORS for canvas export
+routes.get("/image-proxy", async (c) => {
+  const url = c.req.query("url") || "";
+  if (!/^https?:\/\//i.test(url)) return c.json({ error: "Missing url" }, 400);
+  // Basic allowlist: only Supabase Storage paths
+  if (!/\.supabase\.co\/storage\/v1\/object\//i.test(url)) return c.json({ error: "Forbidden" }, 403);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return c.json({ error: `Upstream ${res.status}` }, 502);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") || "application/octet-stream";
+    return c.body(buf, 200, {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+  } catch (err) {
+    console.log(`image-proxy error: ${err}`);
+    return c.json({ error: "Proxy failed" }, 500);
+  }
+});
+
 // Save tactic (formation + players + arrows)
 routes.post("/save-tactic", async (c) => {
   try {

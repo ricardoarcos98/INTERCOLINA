@@ -744,7 +744,7 @@ function AppContent() {
     root.setAttribute('data-exporting', 'true');
     try {
       await waitForPitchImages(root);
-      const undoInlineImgs = await inlinePitchImagesForCapture(root);
+      const undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
       const undoDom = preparePitchDomForCapture(root);
       try {
         await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));

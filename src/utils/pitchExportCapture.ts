@@ -68,9 +68,22 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  *
  * Nota: para `http(s)` depende de CORS. Para `blob:` y `data:` funciona siempre.
  */
-export async function inlinePitchImagesForCapture(root: HTMLElement): Promise<() => void> {
+export async function inlinePitchImagesForCapture(
+  root: HTMLElement,
+  opts?: { proxyBase?: string },
+): Promise<() => void> {
   const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
   const undo: Array<() => void> = [];
+
+  const fetchAsBlob = async (url: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  };
 
   await Promise.all(
     imgs.map(async (img) => {
@@ -88,9 +101,12 @@ export async function inlinePitchImagesForCapture(root: HTMLElement): Promise<()
         // Evita que el browser intente usar srcset durante el clon.
         img.srcset = '';
 
-        const res = await fetch(src, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) return;
-        const blob = await res.blob();
+        let blob = await fetchAsBlob(src);
+        if (!blob && opts?.proxyBase && /^https?:\/\//i.test(src)) {
+          const proxied = `${opts.proxyBase.replace(/\/$/, '')}/image-proxy?url=${encodeURIComponent(src)}`;
+          blob = await fetchAsBlob(proxied);
+        }
+        if (!blob) return;
         const dataUrl = await blobToDataUrl(blob);
         img.src = dataUrl;
       } catch {
