@@ -9,6 +9,8 @@ export interface Player {
   pitchX: number;
   pitchY: number;
   isOnPitch: boolean;
+  /** No puede volver a entrar; el equipo juega con 11 - n expulsados en cancha. */
+  isSentOff?: boolean;
 }
 
 export interface Formation {

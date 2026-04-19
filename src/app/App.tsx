@@ -58,6 +58,14 @@ export const POSITION_LABELS: Record<Position, string> = {
   ED: 'Extremo Der.', EI: 'Extremo Izq.', DC: 'Delantero Centro',
 };
 
+/** Expulsado no puede estar en cancha; normaliza datos de API / copias. */
+function normalizePlayersFromApi(list: Player[]): Player[] {
+  return list.map((p) => {
+    const isSentOff = !!(p as Player & { isSentOff?: boolean }).isSentOff;
+    return { ...p, isSentOff, isOnPitch: isSentOff ? false : p.isOnPitch };
+  });
+}
+
 // Helpers
 const F = (name: string, p: Formation['positions']): Formation => ({ name, positions: [{ x: 50, y: 90, pos: 'ARQ' as Position }, ...p] });
 const LI_ = (x: number, y: number): { x: number; y: number; pos: Position } => ({ x, y, pos: 'LI' });
@@ -294,7 +302,9 @@ function AppContent() {
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const initialLoadDone = useRef(false);
 
-  const pitchPlayers = players.filter(p => p.isOnPitch);
+  const sentOffCount = players.filter((p) => p.isSentOff).length;
+  const maxPlayersOnPitch = Math.max(0, 11 - sentOffCount);
+  const pitchPlayers = players.filter((p) => p.isOnPitch);
 
   const tacticSnapshot = useRef({
     players,
@@ -390,7 +400,8 @@ function AppContent() {
   }, [captainPlayerId]);
 
   const handleApplySnapshot = useCallback((snap: TacticSnapshot) => {
-    setPlayers(snap.players);
+    const list = normalizePlayersFromApi(snap.players);
+    setPlayers(list);
     setArrows(snap.arrows);
     setOpponents(snap.opponents);
     setLaserStrokes(snap.laserStrokes ?? []);
@@ -398,7 +409,7 @@ function AppContent() {
     setAllFormations([...FORMATIONS, ...snap.customFormations]);
     setSelectedPlayerId(null);
     const cap = snap.captainPlayerId;
-    const ok = typeof cap === 'string' && cap && snap.players.some((p) => p.id === cap && p.isOnPitch);
+    const ok = typeof cap === 'string' && cap && list.some((p) => p.id === cap && p.isOnPitch);
     setCaptainPlayerId(ok ? cap : null);
   }, []);
 
@@ -452,7 +463,8 @@ function AppContent() {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.players) setPlayers(data.players);
+          const plNorm = data.players ? normalizePlayersFromApi(data.players as Player[]) : [];
+          if (data.players) setPlayers(plNorm);
           if (data.arrows) setArrows(data.arrows);
           if (data.opponents) setOpponents(data.opponents);
           if (data.formation) setCurrentFormation(data.formation);
@@ -464,8 +476,7 @@ function AppContent() {
           if (typeof data.coachName === 'string' && data.coachName.trim()) setCoachName(data.coachName.trim());
           if (Object.prototype.hasOwnProperty.call(data, 'captainPlayerId')) {
             const cap = data.captainPlayerId as string | null | undefined;
-            const pl = data.players as Player[] | undefined;
-            if (typeof cap === 'string' && cap && pl?.some((p) => p.id === cap && p.isOnPitch)) setCaptainPlayerId(cap);
+            if (typeof cap === 'string' && cap && plNorm.some((p) => p.id === cap && p.isOnPitch)) setCaptainPlayerId(cap);
             else setCaptainPlayerId(null);
           }
           console.log('Tactic loaded from Supabase');
@@ -564,7 +575,7 @@ function AppContent() {
   const handlePlayerMove = (id: string, x: number, y: number) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, pitchX: x, pitchY: y } : p));
 
   const handleAddPlayer = (np: Omit<Player, 'id'>) => {
-    const p: Player = { ...np, id: Math.random().toString(36).substr(2, 9) };
+    const p: Player = { ...np, id: Math.random().toString(36).substr(2, 9), isSentOff: false };
     setPlayers(prev => [...prev, p]);
     setSelectedPlayerId(p.id);
     toast.success(`${p.name} agregado`);
@@ -576,20 +587,39 @@ function AppContent() {
     const p = players.find(pl => pl.id === id);
     if (!p) return;
     if (p.isOnPitch) {
-      setPlayers(prev => prev.map(pl => pl.id === id ? { ...pl, isOnPitch: false } : pl));
-      toast('📋 ' + p.name + ' al banquillo');
-    } else {
-      setPlayers(prev => prev.filter(pl => pl.id !== id));
-      toast.error(`${p.name} eliminado`);
+      toast.error('Debe haber 11 en campo salvo expulsados. Usa el cambio (↔) o marca expulsión en editar jugador.');
+      return;
     }
+    setPlayers(prev => prev.filter(pl => pl.id !== id));
+    toast.error(`${p.name} eliminado`);
     if (selectedPlayerId === id) setSelectedPlayerId(null);
     setCaptainPlayerId((prev) => (prev === id ? null : prev));
   };
 
+  const handleMarkSentOff = (id: string) => {
+    const p = players.find((pl) => pl.id === id);
+    if (!p?.isOnPitch || p.isSentOff) return;
+    const nextOnField = Math.max(0, 11 - sentOffCount - 1);
+    if (!window.confirm(`¿Expulsar a ${p.name}? Quedarán ${nextOnField} jugadores en cancha (máx. permitido con esta expulsión).`)) return;
+    setPlayers((prev) =>
+      prev.map((pl) => (pl.id === id ? { ...pl, isOnPitch: false, isSentOff: true } : pl)),
+    );
+    setCaptainPlayerId((prev) => (prev === id ? null : prev));
+    toast.message(`Expulsado: ${p.name}`);
+  };
+
   const handleSendToPitch = (id: string) => {
     const p = players.find(pl => pl.id === id);
-    if (!p) return;
-    if (pitchPlayers.length >= 11) { toast.error('Ya hay 11 en el campo'); return; }
+    if (!p || p.isSentOff) {
+      if (p?.isSentOff) toast.error('Un expulsado no puede volver a entrar');
+      return;
+    }
+    const exp = players.filter((x) => x.isSentOff).length;
+    const max = Math.max(0, 11 - exp);
+    if (pitchPlayers.length >= max) {
+      toast.error(max < 11 ? `Con ${exp} expulsado(s), máximo ${max} jugadores en cancha` : 'Ya hay 11 en el campo');
+      return;
+    }
     setPlayers(prev => prev.map(pl => pl.id === id ? { ...pl, isOnPitch: true, pitchX: 50, pitchY: 50 } : pl));
     toast.success(`${p.name} al campo`);
   };
@@ -598,6 +628,10 @@ function AppContent() {
     const onP = players.find(p => p.id === onPitchId);
     const bench = players.find(p => p.id === benchId);
     if (!onP || !bench) return;
+    if (bench.isSentOff) {
+      toast.error('Un expulsado no puede entrar al campo');
+      return;
+    }
     setPlayers(prev => prev.map(p => {
       if (p.id === onPitchId) return { ...p, isOnPitch: false };
       if (p.id === benchId) return { ...p, isOnPitch: true, pitchX: onP.pitchX, pitchY: onP.pitchY };
@@ -773,7 +807,7 @@ function AppContent() {
 
       {!focusMode && (
       <Sidebar players={players} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer}
-        onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch}
+        onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch} onMarkSentOff={handleMarkSentOff}
         selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
         onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
         onRequestPersist={() => handleSaveToCloud(true)}
@@ -1005,7 +1039,7 @@ function AppContent() {
         {/* Mobile info bar */}
         <div className={`mt-3 md:hidden flex items-center justify-between w-full max-w-[520px] px-4 py-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white/80 border-gray-200'}`}>
           <span className="text-emerald-500 font-black text-lg">{currentFormation}</span>
-          <span className={`text-xs ${mut}`}>{pitchPlayers.length}/11</span>
+          <span className={`text-xs ${mut}`}>{pitchPlayers.length}/{maxPlayersOnPitch}</span>
           <div className="flex max-w-[52%] flex-wrap justify-end gap-1.5" title={LEGEND.map((l) => `${l.title} (${l.roles})`).join(' · ')}>
             {LEGEND.map((l) => (
               <span key={l.line} className={`h-3 w-3 shrink-0 rounded-full ${l.color}`} style={{ boxShadow: `0 0 6px ${l.shadow}` }} />
@@ -1025,7 +1059,7 @@ function AppContent() {
               </button>
             </div>
             <span className="text-emerald-400 font-black text-sm md:text-lg">{currentFormation}</span>
-            <span className={`text-xs font-bold ${mut}`}>{pitchPlayers.length} titulares</span>
+            <span className={`text-xs font-bold ${mut}`}>{pitchPlayers.length}/{maxPlayersOnPitch} en cancha</span>
             {editLocked ? (
               <button type="button" onClick={() => setPinModalOpen(true)} className={`${btn()} border-amber-500/50 text-amber-400`} title="Desbloquear (PIN)">
                 <Lock className="w-4 h-4" />
@@ -1134,7 +1168,7 @@ function AppContent() {
         <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
           <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${mut}`}>Formacion</h3>
           <span className="text-2xl font-black text-emerald-500">{currentFormation}</span>
-          <p className={`text-[10px] mt-1 ${mut}`}>{pitchPlayers.length}/11 jugadores</p>
+          <p className={`text-[10px] mt-1 ${mut}`}>{pitchPlayers.length}/{maxPlayersOnPitch} en cancha{sentOffCount > 0 ? ` · ${sentOffCount} exp.` : ''}</p>
         </div>
         <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
           <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${mut}`}>Tacticas</h3>

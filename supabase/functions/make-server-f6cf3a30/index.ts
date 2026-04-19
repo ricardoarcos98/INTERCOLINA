@@ -125,6 +125,7 @@ routes.post("/save-tactic", async (c) => {
       pitchX: p.pitchX,
       pitchY: p.pitchY,
       isOnPitch: p.isOnPitch,
+      isSentOff: !!p.isSentOff,
     }));
     if (keys.length > 0) {
       await kv.mset(keys, values);
@@ -186,6 +187,7 @@ routes.get("/load-tactic/:id", async (c) => {
           pitchX: v.pitchX ?? 50,
           pitchY: v.pitchY ?? 50,
           isOnPitch: v.isOnPitch ?? false,
+          isSentOff: !!(v.isSentOff ?? v.expulsado),
         }));
     }
 

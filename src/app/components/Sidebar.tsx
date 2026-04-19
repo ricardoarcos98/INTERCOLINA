@@ -3,7 +3,7 @@ import { Player, Position } from '../types';
 import { POSITION_LABELS } from '../App';
 import { POSITION_DISPLAY_ORDER, positionBadgeClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
-import { Camera, Trash2, User, UserPlus, ArrowLeftRight, ChevronDown, ChevronUp, LogIn, Star, X, Upload, Loader2, Pencil, Lock } from 'lucide-react';
+import { Camera, Trash2, User, UserPlus, ArrowLeftRight, ChevronDown, ChevronUp, LogIn, Star, X, Upload, Loader2, Pencil, Lock, Ban, Undo2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ interface SidebarProps {
   onUpdatePlayer: (id: string, updates: Partial<Player>) => void;
   onRemovePlayer: (id: string) => void;
   onSendToPitch: (id: string) => void;
+  onMarkSentOff: (id: string) => void;
   selectedPlayerId: string | null;
   onSelectPlayer: (id: string) => void;
   onSubstitution: (onPitchId: string, benchId: string) => void;
@@ -37,7 +38,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  players, onAddPlayer, onUpdatePlayer, onRemovePlayer, onSendToPitch,
+  players, onAddPlayer, onUpdatePlayer, onRemovePlayer, onSendToPitch, onMarkSentOff,
   selectedPlayerId, onSelectPlayer, onSubstitution, isOpen, onClose,
   onRequestPersist,
   savedTacticsPanel,
@@ -73,8 +74,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setCoachEditOpen(false);
   }, [selectedPlayerId]);
 
-  const pitchPlayers = players.filter(p => p.isOnPitch);
-  const benchPlayers = players.filter(p => !p.isOnPitch);
+  const sentOffCount = players.filter((p) => p.isSentOff).length;
+  const maxOnPitch = Math.max(0, 11 - sentOffCount);
+  const pitchPlayers = players.filter((p) => p.isOnPitch);
+  const sentOffPlayers = players.filter((p) => p.isSentOff);
+  const benchPlayers = players.filter((p) => !p.isOnPitch && !p.isSentOff);
 
   const subOutPlayer = subMode ? players.find(p => p.id === subMode) : null;
   const sortedBench = subOutPlayer
@@ -88,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const number = parseInt(fd.get('number') as string, 10);
     const position = fd.get('position') as Position;
     if (!name || isNaN(number)) return;
-    onAddPlayer({ name, number, position, photoUrl: '', pitchX: 50, pitchY: 50, isOnPitch: false });
+    onAddPlayer({ name, number, position, photoUrl: '', pitchX: 50, pitchY: 50, isOnPitch: false, isSentOff: false });
     setIsAdding(false);
   };
 
@@ -184,14 +188,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
         <div>
           <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-emerald-500">Plantilla</h2>
-          <p className={`text-xs mt-1 ${mutedText}`}>{pitchPlayers.length} titulares &middot; {benchPlayers.length} suplentes</p>
+          <p className={`text-xs mt-1 ${mutedText}`}>
+            {pitchPlayers.length}/{maxOnPitch} en cancha &middot; {benchPlayers.length} suplentes
+            {sentOffCount > 0 ? ` · ${sentOffCount} exp.` : ''}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsAdding(!isAdding)}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button type="button" onClick={() => setIsAdding(!isAdding)}
             className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
             {isAdding ? <User className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
           </button>
-          <button onClick={onClose} className="md:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20">
+          <button type="button" onClick={onClose} className="md:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -338,10 +345,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <h3 className="text-base md:text-lg font-bold text-yellow-500">Editar jugador</h3>
               <div className="flex gap-1">
                 <button type="button" onClick={() => setEditOpen(false)} className={`p-1 rounded-md ${mutedText} hover:text-white`} title="Cerrar edición"><X className="w-4 h-4" /></button>
-                {!selectedPlayer.isOnPitch && pitchPlayers.length < 11 && (
-                  <button onClick={() => onSendToPitch(selectedPlayer.id)} className="text-emerald-400 hover:text-emerald-300 p-1 bg-emerald-400/10 rounded-md"><LogIn className="w-4 h-4" /></button>
+                {!selectedPlayer.isOnPitch && !selectedPlayer.isSentOff && pitchPlayers.length < maxOnPitch && (
+                  <button type="button" title="Enviar al campo" onClick={() => onSendToPitch(selectedPlayer.id)} className="text-emerald-400 hover:text-emerald-300 p-1 bg-emerald-400/10 rounded-md"><LogIn className="w-4 h-4" /></button>
                 )}
-                <button onClick={() => onRemovePlayer(selectedPlayer.id)} className="text-red-400 hover:text-red-300 p-1 bg-red-400/10 rounded-md"><Trash2 className="w-4 h-4" /></button>
+                {selectedPlayer.isOnPitch && !selectedPlayer.isSentOff && (
+                  <button
+                    type="button"
+                    title="Expulsión (roja)"
+                    onClick={() => onMarkSentOff(selectedPlayer.id)}
+                    className="p-1 rounded-md bg-red-950/80 text-red-300 hover:bg-red-900 border border-red-500/40"
+                  >
+                    <Ban className="w-4 h-4" />
+                  </button>
+                )}
+                {selectedPlayer.isSentOff && (
+                  <button
+                    type="button"
+                    title="Quitar expulsión (solo táctica / simulación)"
+                    onClick={() => onUpdatePlayer(selectedPlayer.id, { isSentOff: false })}
+                    className="p-1 rounded-md bg-slate-600/40 text-slate-200 hover:bg-slate-600/60"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </button>
+                )}
+                {!selectedPlayer.isOnPitch && (
+                  <button type="button" title="Eliminar del plantel" onClick={() => onRemovePlayer(selectedPlayer.id)} className="text-red-400 hover:text-red-300 p-1 bg-red-400/10 rounded-md"><Trash2 className="w-4 h-4" /></button>
+                )}
               </div>
             </div>
             <div className="space-y-3 relative z-10">
@@ -391,7 +420,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Titulares */}
         <div className="space-y-1.5">
-          <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Titulares ({pitchPlayers.length}/11)</h3>
+          <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Titulares ({pitchPlayers.length}/{maxOnPitch})</h3>
           {pitchPlayers.map(p => (
             <PlayerRow key={p.id} player={p} isSelected={selectedPlayerId === p.id} isDark={isDark}
               cardBg={cardBg} hoverCard={hoverCard} mutedText={mutedText}
@@ -443,8 +472,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     {subMode && rec && <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded"><Star className="w-3 h-3" /> REC</span>}
                     {subMode && !rec && <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-1 rounded">ENTRAR</span>}
-                    {!subMode && pitchPlayers.length < 11 && (
-                      <button onClick={e => { e.stopPropagation(); onSendToPitch(p.id); }} className="p-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/30 text-emerald-400"><LogIn className="w-3.5 h-3.5" /></button>
+                    {!subMode && pitchPlayers.length < maxOnPitch && (
+                      <button type="button" title="Al campo" onClick={e => { e.stopPropagation(); onSendToPitch(p.id); }} className="p-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/30 text-emerald-400"><LogIn className="w-3.5 h-3.5" /></button>
                     )}
                   </div>
                 </motion.div>
@@ -452,6 +481,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })}
           </AnimatePresence>
         </div>
+
+        {sentOffPlayers.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            <h3 className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-red-400/90">
+              Expulsados ({sentOffPlayers.length})
+            </h3>
+            {sentOffPlayers.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => {
+                  setCoachEditOpen(false);
+                  onSelectPlayer(p.id);
+                }}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2 transition-all md:p-2.5 ${
+                  selectedPlayerId === p.id ? `${cardBg} border-red-500/50 shadow-md` : `${isDark ? 'bg-red-950/30' : 'bg-red-50'} border-red-500/20 ${hoverCard}`
+                }`}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-red-900/50 bg-slate-800 md:h-11 md:w-11">
+                  {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-red-300">{p.number}</span>}
+                </div>
+                <div className="min-w-0 flex-1 truncate">
+                  <div className={`truncate text-sm font-bold ${selectedPlayerId === p.id ? 'text-red-300' : ''}`}>{p.name}</div>
+                  <div className={`flex flex-wrap items-center gap-2 text-xs ${mutedText}`}>
+                    <span className="rounded bg-red-600/40 px-1.5 py-0.5 text-[9px] font-black text-red-100">EXP</span>
+                    #{p.number}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
           <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Director técnico</h3>
