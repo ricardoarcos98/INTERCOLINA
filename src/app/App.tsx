@@ -13,7 +13,7 @@ import {
   Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { preparePitchDomForCapture, waitForPitchImages } from '../utils/pitchExportCapture';
+import { inlinePitchImagesForCapture, preparePitchDomForCapture, waitForPitchImages } from '../utils/pitchExportCapture';
 import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
@@ -119,8 +119,8 @@ type TacticalToolbarProps = {
   setOpponents: React.Dispatch<React.SetStateAction<OpponentMarker[]>>;
   laserStrokes: LaserStroke[];
   setLaserStrokes: React.Dispatch<React.SetStateAction<LaserStroke[]>>;
-  /** Edición bloqueada: desactiva herramientas tácticas */
-  disabled?: boolean;
+  /** off = todas; full = candado en vista completa; laser-only = modo foco con candado (solo láser). */
+  toolLock?: 'off' | 'full' | 'laser-only';
 };
 
 function TacticalToolbar({
@@ -137,8 +137,11 @@ function TacticalToolbar({
   setOpponents,
   laserStrokes,
   setLaserStrokes,
-  disabled = false,
+  toolLock = 'off',
 }: TacticalToolbarProps) {
+  const lockFull = toolLock === 'full';
+  const lockLaserOnly = toolLock === 'laser-only';
+  const toolDisabled = (t: PitchTool) => lockFull || (lockLaserOnly && t !== 'laser');
   const verticalToolLayout = variant === 'rail' || variant === 'dock';
   const sep = (
     <div
@@ -149,32 +152,32 @@ function TacticalToolbar({
 
   const tools = (
     <>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('move')} className={btn(activeTool === 'move')} title="Mover">
+      <button type="button" disabled={toolDisabled('move')} onClick={() => setActiveTool('move')} className={btn(activeTool === 'move')} title="Mover">
         <Move className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('draw')} className={btn(activeTool === 'draw')} title="Flechas tácticas">
+      <button type="button" disabled={toolDisabled('draw')} onClick={() => setActiveTool('draw')} className={btn(activeTool === 'draw')} title="Flechas tácticas">
         <PenLine className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('opponent')} className={btn(activeTool === 'opponent')} title="Rivales">
+      <button type="button" disabled={toolDisabled('opponent')} onClick={() => setActiveTool('opponent')} className={btn(activeTool === 'opponent')} title="Rivales">
         <Circle className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('laser')} className={btn(activeTool === 'laser')} title="Láser (se borra solo, estilo Excalidraw)">
+      <button type="button" disabled={toolDisabled('laser')} onClick={() => setActiveTool('laser')} className={btn(activeTool === 'laser')} title="Láser (se borra solo, estilo Excalidraw)">
         <Sparkles className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('pen')} className={btn(activeTool === 'pen')} title="Lápiz (marca fija en la planilla)">
+      <button type="button" disabled={toolDisabled('pen')} onClick={() => setActiveTool('pen')} className={btn(activeTool === 'pen')} title="Lápiz (marca fija en la planilla)">
         <Pencil className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Intercambiar titulares (2 toques)">
+      <button type="button" disabled={toolDisabled('swap')} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Intercambiar titulares (2 toques)">
         <ArrowLeftRight className="w-4 h-4" />
       </button>
       {sep}
-      <button type="button" disabled={disabled} onClick={() => setArrowStyle('solid')} className={btn(arrowStyle === 'solid')} title="Solida">
+      <button type="button" disabled={lockFull || lockLaserOnly} onClick={() => setArrowStyle('solid')} className={btn(arrowStyle === 'solid')} title="Solida">
         <Minus className="w-4 h-4" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => setArrowStyle('dashed')} className={btn(arrowStyle === 'dashed')} title="Punteada">
+      <button type="button" disabled={lockFull || lockLaserOnly} onClick={() => setArrowStyle('dashed')} className={btn(arrowStyle === 'dashed')} title="Punteada">
         <span className="text-[10px] font-bold tracking-widest">--</span>
       </button>
-      <button type="button" disabled={disabled} onClick={() => setArrowStyle('curved')} className={btn(arrowStyle === 'curved')} title="Curva">
+      <button type="button" disabled={lockFull || lockLaserOnly} onClick={() => setArrowStyle('curved')} className={btn(arrowStyle === 'curved')} title="Curva">
         <Spline className="w-4 h-4" />
       </button>
       {sep}
@@ -182,7 +185,7 @@ function TacticalToolbar({
         <button
           key={c}
           type="button"
-          disabled={disabled}
+          disabled={lockFull}
           onClick={() => setArrowColor(c)}
           className={`w-5 h-5 shrink-0 rounded-full border-2 hover:scale-110 transition-transform ${arrowColor === c ? 'border-white scale-110' : 'border-white/20'}`}
           style={{ backgroundColor: c }}
@@ -193,8 +196,12 @@ function TacticalToolbar({
       {sep}
       <button
         type="button"
-        disabled={disabled}
+        disabled={lockFull || (lockLaserOnly && laserStrokes.length === 0)}
         onClick={() => {
+          if (lockLaserOnly) {
+            if (laserStrokes.length > 0) setLaserStrokes((ls) => ls.slice(0, -1));
+            return;
+          }
           if (laserStrokes.length > 0) setLaserStrokes((ls) => ls.slice(0, -1));
           else setArrows((p) => p.slice(0, -1));
         }}
@@ -205,8 +212,13 @@ function TacticalToolbar({
       </button>
       <button
         type="button"
-        disabled={disabled}
+        disabled={lockFull || (lockLaserOnly && laserStrokes.length === 0)}
         onClick={() => {
+          if (lockLaserOnly) {
+            setLaserStrokes([]);
+            toast('Láser borrado');
+            return;
+          }
           setArrows([]);
           setOpponents([]);
           setLaserStrokes([]);
@@ -225,7 +237,7 @@ function TacticalToolbar({
       <div
         className={`hidden md:flex shrink-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-20 self-start sticky top-2 touch-manipulation ${
           isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white/95 border-gray-200'
-        } shadow-lg backdrop-blur-sm ${disabled ? 'opacity-50' : ''}`}
+        } shadow-lg backdrop-blur-sm ${lockFull ? 'opacity-50' : ''}`}
         role="toolbar"
         aria-label="Toolkit del entrenador"
       >
@@ -239,7 +251,7 @@ function TacticalToolbar({
       <div
         className={`hidden md:flex absolute -left-12 md:-left-14 top-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-10 ${
           isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/90 border-gray-200'
-        } backdrop-blur-sm ${disabled ? 'opacity-50' : ''}`}
+        } backdrop-blur-sm ${lockFull ? 'opacity-50' : ''}`}
       >
         {tools}
       </div>
@@ -250,7 +262,7 @@ function TacticalToolbar({
     <div
       className={`md:hidden w-full mb-2 flex flex-row flex-wrap items-center justify-center gap-1.5 p-2 rounded-xl border z-10 touch-manipulation ${
         isDark ? 'bg-slate-900/85 border-white/10' : 'bg-white/95 border-gray-200'
-      } shadow-sm ${disabled ? 'opacity-50' : ''}`}
+      } shadow-sm ${lockFull ? 'opacity-50' : ''}`}
     >
       {tools}
     </div>
@@ -321,6 +333,20 @@ function AppContent() {
   useEffect(() => {
     if (activeTool !== 'swap') setSwapPendingId(null);
   }, [activeTool]);
+
+  /** Modo foco + candado: solo láser en cancha; evita quedar en mover/flechas/etc. */
+  useEffect(() => {
+    if (!focusMode || editUnlocked) return;
+    if (
+      activeTool === 'move' ||
+      activeTool === 'draw' ||
+      activeTool === 'opponent' ||
+      activeTool === 'pen' ||
+      activeTool === 'swap'
+    ) {
+      setActiveTool('laser');
+    }
+  }, [focusMode, editUnlocked, activeTool]);
 
   /** iOS/Safari: sin esto el documento sigue haciendo scroll vertical al trazar flechas en el celular. */
   useEffect(() => {
@@ -718,9 +744,10 @@ function AppContent() {
     root.setAttribute('data-exporting', 'true');
     try {
       await waitForPitchImages(root);
+      const undoInlineImgs = await inlinePitchImagesForCapture(root);
       const undoDom = preparePitchDomForCapture(root);
       try {
-        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
         await new Promise<void>((r) => setTimeout(r, 120));
         return await toPng(root, {
           cacheBust: true,
@@ -730,6 +757,7 @@ function AppContent() {
         });
       } finally {
         undoDom();
+        undoInlineImgs();
       }
     } catch (err) {
       console.error(err);
@@ -758,6 +786,8 @@ function AppContent() {
   const editLocked = !editUnlocked;
   /** Modo foco y césped siguen disponibles con el candado activo. */
   const pitchToolsLocked = editLocked && !focusMode;
+  const focusLaserOnlyLock = focusMode && editLocked;
+  const tacticalToolLock: 'off' | 'full' | 'laser-only' = pitchToolsLocked ? 'full' : focusLaserOnlyLock ? 'laser-only' : 'off';
   /** En pantallas chicas el panel central tiene scroll; al rayar flechas/lápiz/láser hay que congelarlo para que no se mueva la vista. */
   const sketchLocksCenterScroll =
     !pitchToolsLocked && (activeTool === 'draw' || activeTool === 'pen' || activeTool === 'laser');
@@ -1034,7 +1064,7 @@ function AppContent() {
             setOpponents={setOpponents}
             laserStrokes={laserStrokes}
             setLaserStrokes={setLaserStrokes}
-            disabled={pitchToolsLocked}
+            toolLock={tacticalToolLock}
           />
           <TacticalToolbar
             variant="rail"
@@ -1050,7 +1080,7 @@ function AppContent() {
             setOpponents={setOpponents}
             laserStrokes={laserStrokes}
             setLaserStrokes={setLaserStrokes}
-            disabled={pitchToolsLocked}
+            toolLock={tacticalToolLock}
           />
 
           <div className="w-full relative">
@@ -1066,7 +1096,8 @@ function AppContent() {
               onSwapTitularPick={handleSwapTitularPick}
               swapPendingId={swapPendingId}
               captainPlayerId={captainPlayerId}
-              editLocked={pitchToolsLocked} />
+              editLocked={pitchToolsLocked}
+              laserOnlyLock={false} />
           </div>
           </div>
           <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-end gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1">
@@ -1132,7 +1163,7 @@ function AppContent() {
                 setOpponents={setOpponents}
                 laserStrokes={laserStrokes}
                 setLaserStrokes={setLaserStrokes}
-                disabled={pitchToolsLocked}
+                toolLock={tacticalToolLock}
               />
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <TacticalToolbar
@@ -1149,7 +1180,7 @@ function AppContent() {
                   setOpponents={setOpponents}
                   laserStrokes={laserStrokes}
                   setLaserStrokes={setLaserStrokes}
-                  disabled={pitchToolsLocked}
+                  toolLock={tacticalToolLock}
                 />
                 <div className="relative min-h-0 w-full min-w-0 flex-1">
                   <Pitch
@@ -1172,7 +1203,8 @@ function AppContent() {
                     onSwapTitularPick={handleSwapTitularPick}
                     swapPendingId={swapPendingId}
                     captainPlayerId={captainPlayerId}
-                    editLocked={pitchToolsLocked}
+                    editLocked={false}
+                    laserOnlyLock={focusLaserOnlyLock}
                   />
                 </div>
               </div>

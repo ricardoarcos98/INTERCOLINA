@@ -89,6 +89,8 @@ interface PitchProps {
   captainPlayerId?: string | null;
   /** Bloqueo por candado: misma interacción que lineupOnly en campo y fichas, pero se siguen viendo flechas/lápiz/rivales. */
   editLocked?: boolean;
+  /** Modo foco + candado: solo láser; fichas y rivales quietos, sin flechas/lápiz/cambio. */
+  laserOnlyLock?: boolean;
 }
 
 export const Pitch: React.FC<PitchProps> = ({
@@ -99,9 +101,12 @@ export const Pitch: React.FC<PitchProps> = ({
   lineupOnly = false,
   captainPlayerId = null,
   editLocked = false,
+  laserOnlyLock = false,
 }) => {
   const { grassColor, grassCut } = useTheme();
+  const laserOnly = !!laserOnlyLock && !lineupOnly;
   const blockField = lineupOnly || editLocked;
+  const readOnlyPieces = blockField || laserOnly;
   const [drawing, setDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
@@ -139,6 +144,7 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (blockField) return;
+    if (laserOnly && activeTool !== 'laser') return;
     if (activeTool === 'draw') {
       e.preventDefault();
       try {
@@ -156,6 +162,7 @@ export const Pitch: React.FC<PitchProps> = ({
       const pt = toPercent(e.clientX, e.clientY);
       onAddOpponent({ id: Math.random().toString(36).substr(2, 9), x: pt.x, y: pt.y });
     } else if (activeTool === 'laser' || activeTool === 'pen') {
+      if (laserOnly && activeTool === 'pen') return;
       e.preventDefault();
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -171,6 +178,7 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (blockField) return;
+    if (laserOnly && activeTool !== 'laser') return;
     const sketching =
       (drawing && activeTool === 'draw') ||
       ((activeTool === 'laser' || activeTool === 'pen') && laserDrawing.length > 0);
@@ -191,7 +199,7 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const handlePointerUp = () => {
     tryReleaseSketchCapture();
-    if (blockField) {
+    if (blockField || (laserOnly && activeTool !== 'laser')) {
       setLaserDrawing([]);
       lastLaserPoint.current = null;
       setDrawing(false);
@@ -362,16 +370,21 @@ export const Pitch: React.FC<PitchProps> = ({
 
   const cursorClass = blockField
     ? 'cursor-default'
-    : activeTool === 'draw' ? 'cursor-crosshair'
-      : activeTool === 'opponent' ? 'cursor-cell'
-        : activeTool === 'laser' || activeTool === 'pen' ? 'cursor-crosshair'
-          : activeTool === 'swap' ? 'cursor-alias'
-            : '';
+    : laserOnly && activeTool !== 'laser'
+      ? 'cursor-default'
+      : activeTool === 'draw' ? 'cursor-crosshair'
+        : activeTool === 'opponent' ? 'cursor-cell'
+          : activeTool === 'laser' || activeTool === 'pen' ? 'cursor-crosshair'
+            : activeTool === 'swap' ? 'cursor-alias'
+              : '';
 
-  const laserOverlay = !blockField && (activeTool === 'laser' || activeTool === 'pen');
+  /** El láser debe “atravesar” fichas y rivales; en candado+foco solo láser. */
+  const tokenLaserPassthrough =
+    !blockField && (activeTool === 'laser' || (!laserOnly && activeTool === 'pen'));
 
   const sketchTouchLock =
-    !blockField && (activeTool === 'draw' || activeTool === 'pen' || activeTool === 'laser');
+    !blockField &&
+    (activeTool === 'draw' || activeTool === 'laser' || (!laserOnly && activeTool === 'pen'));
 
   const removeEphemeral = useCallback((id: string) => {
     setEphemeralLaser((prev) => prev.filter((s) => s.id !== id));
@@ -540,7 +553,7 @@ export const Pitch: React.FC<PitchProps> = ({
       )}
 
       {!lineupOnly && opponents.map(m => (
-        <OpponentToken key={m.id} marker={m} pitchRef={pitchRef} onMove={onMoveOpponent} onRemove={onRemoveOpponent} activeTool={activeTool} laserOverlay={laserOverlay} readOnly={blockField} />
+        <OpponentToken key={m.id} marker={m} pitchRef={pitchRef} onMove={onMoveOpponent} onRemove={onRemoveOpponent} activeTool={activeTool} laserOverlay={tokenLaserPassthrough} readOnly={readOnlyPieces} />
       ))}
 
       {players.map(player => (
@@ -552,7 +565,8 @@ export const Pitch: React.FC<PitchProps> = ({
           onSelectPlayer={() => onSelectPlayer(player.id)}
           onSwapPick={() => onSwapTitularPick(player.id)}
           activeTool={activeTool}
-          readOnly={blockField} />
+          readOnly={readOnlyPieces}
+          laserOverlay={tokenLaserPassthrough} />
       ))}
     </div>
   );
@@ -626,11 +640,13 @@ const PlayerToken: React.FC<{
   onSwapPick: () => void;
   activeTool: PitchTool;
   readOnly?: boolean;
-}> = ({ player, pitchRef, onDragEnd, isSelected, swapHighlight, isCaptain, onSelectPlayer, onSwapPick, activeTool, readOnly = false }) => {
+  /** true = el láser atraviesa la ficha (candado+foco solo láser o lápiz en modo normal). */
+  laserOverlay?: boolean;
+}> = ({ player, pitchRef, onDragEnd, isSelected, swapHighlight, isCaptain, onSelectPlayer, onSwapPick, activeTool, readOnly = false, laserOverlay = false }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const canDrag = !readOnly && activeTool === 'move';
-  const laserPassthrough = !readOnly && (activeTool === 'laser' || activeTool === 'pen');
+  const laserPassthrough = !!laserOverlay;
   const swapMode = !readOnly && activeTool === 'swap';
 
   const handleDragEnd = (_: any, info: any) => {
@@ -642,7 +658,7 @@ const PlayerToken: React.FC<{
     onDragEnd(Math.max(4, Math.min(96, nX)), Math.max(4, Math.min(96, nY)));
   };
 
-  const pointerClass = readOnly ? 'pointer-events-none' : laserPassthrough ? 'pointer-events-none' : 'pointer-events-auto';
+  const pointerClass = laserPassthrough ? 'pointer-events-none' : readOnly ? 'pointer-events-none' : 'pointer-events-auto';
   const sideArrow = positionSideArrow(player.position);
 
   return (

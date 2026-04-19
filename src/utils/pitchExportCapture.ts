@@ -53,6 +53,55 @@ export function preparePitchDomForCapture(root: HTMLElement): () => void {
   };
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * html-to-image a veces no puede re-leer `blob:` urls o imágenes que ya están en memoria,
+ * y termina dejando el <img> vacío en el PNG. Esto convierte las imágenes visibles a `data:`.
+ *
+ * Nota: para `http(s)` depende de CORS. Para `blob:` y `data:` funciona siempre.
+ */
+export async function inlinePitchImagesForCapture(root: HTMLElement): Promise<() => void> {
+  const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+  const undo: Array<() => void> = [];
+
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.currentSrc || img.src;
+      if (!src || src.startsWith('data:')) return;
+
+      // Solo nos interesa el área de la cancha; si el <img> ni siquiera cargó, no bloqueamos.
+      try {
+        const prev = { src: img.src, srcset: img.srcset };
+        undo.push(() => {
+          img.srcset = prev.srcset;
+          img.src = prev.src;
+        });
+
+        // Evita que el browser intente usar srcset durante el clon.
+        img.srcset = '';
+
+        const res = await fetch(src, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        img.src = dataUrl;
+      } catch {
+        // Si falla (CORS o red), dejamos el src original.
+      }
+    }),
+  );
+
+  return () => undo.reverse().forEach((fn) => fn());
+}
+
 /**
  * html-to-image rasteriza antes de que las fotos terminen de pintar → caras vacías.
  * Espera load/decode de todos los <img> dentro del nodo de la cancha.
