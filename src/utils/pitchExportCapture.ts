@@ -121,6 +121,21 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+function guessImageMimeFromUrl(url: string): string {
+  const clean = url.split('?')[0].toLowerCase();
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.gif')) return 'image/gif';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  return 'image/jpeg';
+}
+
+async function normalizeBlobToImage(blob: Blob, sourceUrl: string): Promise<Blob> {
+  if (blob.type.startsWith('image/')) return blob;
+  const bytes = await blob.arrayBuffer();
+  return new Blob([bytes], { type: guessImageMimeFromUrl(sourceUrl) });
+}
+
 /**
  * html-to-image a veces no puede re-leer `blob:` urls o imágenes que ya están en memoria,
  * y termina dejando el <img> vacío en el PNG. Esto convierte las imágenes visibles a `data:`.
@@ -239,7 +254,8 @@ export async function inlineTokenFaceImagesForCapture(
       console.warn('[inline-token] giving up on', src.slice(0, 120));
       continue;
     }
-    const dataUrl = await blobToDataUrl(blob);
+    const imageBlob = await normalizeBlobToImage(blob, src);
+    const dataUrl = await blobToDataUrl(imageBlob);
     undo.push(() => {
       img.srcset = prev.srcset;
       img.src = prev.src;
@@ -263,6 +279,87 @@ export async function inlineTokenFaceImagesForCapture(
     undo.reverse().forEach((fn) => fn());
   };
   return { undo: run, inlinedCount };
+}
+
+/**
+ * Fallback fuerte para Safari: "hornea" la cara del token como background data URL
+ * y oculta el <img>. Evita pérdidas al rasterizar máscaras redondas + overflow-hidden.
+ */
+export async function bakeTokenFacesAsDataUrlForCapture(
+  root: HTMLElement,
+  opts?: { proxyBase?: string },
+): Promise<{ undo: () => void; bakedCount: number }> {
+  const imgs = Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[];
+  const undo: Array<() => void> = [];
+  let bakedCount = 0;
+
+  const fetchAsBlob = async (url: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (blob.size === 0) return null;
+      return blob;
+    } catch {
+      return null;
+    }
+  };
+
+  for (const img of imgs) {
+    const face = img.parentElement as HTMLElement | null;
+    const src = img.currentSrc || img.src;
+    if (!face || !src) continue;
+
+    const prevFace = {
+      backgroundImage: face.style.backgroundImage,
+      backgroundSize: face.style.backgroundSize,
+      backgroundPosition: face.style.backgroundPosition,
+      backgroundRepeat: face.style.backgroundRepeat,
+    };
+    const prevImg = {
+      opacity: img.style.opacity,
+      visibility: img.style.visibility,
+      pointerEvents: img.style.pointerEvents,
+    };
+
+    let blob = await fetchAsBlob(src);
+    if (!blob && opts?.proxyBase && /^https?:\/\//i.test(src)) {
+      const proxied = `${opts.proxyBase.replace(/\/$/, '')}/image-proxy?url=${encodeURIComponent(src)}`;
+      if (proxied !== src) blob = await fetchAsBlob(proxied);
+    }
+    if (!blob) continue;
+
+    const imageBlob = await normalizeBlobToImage(blob, src);
+    const dataUrl = await blobToDataUrl(imageBlob);
+    face.style.backgroundImage = `url("${dataUrl.replace(/"/g, '\\"')}")`;
+    face.style.backgroundSize = 'cover';
+    face.style.backgroundPosition = 'center top';
+    face.style.backgroundRepeat = 'no-repeat';
+    img.style.opacity = '0';
+    img.style.visibility = 'hidden';
+    img.style.pointerEvents = 'none';
+
+    undo.push(() => {
+      face.style.backgroundImage = prevFace.backgroundImage;
+      face.style.backgroundSize = prevFace.backgroundSize;
+      face.style.backgroundPosition = prevFace.backgroundPosition;
+      face.style.backgroundRepeat = prevFace.backgroundRepeat;
+      img.style.opacity = prevImg.opacity;
+      img.style.visibility = prevImg.visibility;
+      img.style.pointerEvents = prevImg.pointerEvents;
+    });
+    bakedCount += 1;
+  }
+
+  let undone = false;
+  return {
+    undo: () => {
+      if (undone) return;
+      undone = true;
+      undo.reverse().forEach((fn) => fn());
+    },
+    bakedCount,
+  };
 }
 
 /**

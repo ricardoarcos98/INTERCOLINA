@@ -15,8 +15,7 @@ import {
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
-  bakeTokenImagesForCapture,
-  inlineTokenFaceImagesForCapture,
+  bakeTokenFacesAsDataUrlForCapture,
   preparePitchDomForCapture,
   waitForTokenFaceImages,
 } from '../utils/pitchExportCapture';
@@ -821,13 +820,13 @@ function AppContent() {
           await new Promise<void>((r) => setTimeout(r, 110));
         }
       }
-      const { undo: undoInline, inlinedCount } = await inlineTokenFaceImagesForCapture(root, { proxyBase: API_BASE });
-      if (inlinedCount < expectedPhotos) {
-        undoInline();
+      const { undo: undoBakedFaces, bakedCount } = await bakeTokenFacesAsDataUrlForCapture(root, { proxyBase: API_BASE });
+      toast.message(`DEBUG export v2: baked ${bakedCount}/${expectedPhotos}`);
+      if (bakedCount < expectedPhotos) {
+        undoBakedFaces();
         toast.error('No se pudieron preparar todas las fotos para la descarga. Reintenta en 1-2 segundos.');
         return null;
       }
-      const undoBaked = bakeTokenImagesForCapture(root);
       if (expectedPhotos > 0) {
         // Tras inline/bake, Safari puede tardar un frame extra en reflejar naturalWidth.
         await waitForTokenFaceImages(root, expectedPhotos, 5000);
@@ -835,39 +834,65 @@ function AppContent() {
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       await new Promise<void>((r) => setTimeout(r, 200));
       try {
+        let fromHtml2Canvas: string | null = null;
+        try {
+          const canvas = await html2canvas(root, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null,
+            scale: 2,
+            imageTimeout: 20000,
+            logging: false,
+          });
+          fromHtml2Canvas = canvas.toDataURL('image/png');
+        } catch {
+          fromHtml2Canvas = null;
+        }
+
+        let fromToPng: string | null = null;
         const undoPaint = preparePitchDomForCapture(root);
         try {
-          const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-          const isSafari =
-            /Safari/i.test(ua) &&
-            !/Chrome|Chromium|CriOS|FxiOS|EdgiOS/i.test(ua);
-          if (!isSafari) {
-            try {
-              const canvas = await html2canvas(root, {
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: null,
-                scale: 2,
-                imageTimeout: 20000,
-                logging: false,
-              });
-              return canvas.toDataURL('image/png');
-            } catch {
-              // Fallback below (html-to-image)
-            }
-          }
-          return await toPng(root, {
+          fromToPng = await toPng(root, {
             cacheBust: true,
             pixelRatio: 2,
             skipFonts: true,
             fetchRequestInit: { mode: 'cors', credentials: 'omit' },
           });
+        } catch {
+          fromToPng = null;
         } finally {
           undoPaint();
         }
+
+        if (fromHtml2Canvas && fromToPng) {
+          // Heurística: el PNG con más bytes suele incluir mejor las fotos.
+          return fromHtml2Canvas.length >= fromToPng.length ? fromHtml2Canvas : fromToPng;
+        }
+        if (fromHtml2Canvas) return fromHtml2Canvas;
+        if (fromToPng) return fromToPng;
+        // Último salvavidas: reintentos mínimos sin optimizaciones.
+        try {
+          const canvas = await html2canvas(root, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null,
+            scale: 2,
+            imageTimeout: 30000,
+            logging: false,
+          });
+          return canvas.toDataURL('image/png');
+        } catch {
+          try {
+            return await toPng(root, {
+              cacheBust: true,
+              pixelRatio: 2,
+            });
+          } catch {
+            return null;
+          }
+        }
       } finally {
-        undoBaked();
-        undoInline();
+        undoBakedFaces();
       }
     } catch (err) {
       console.error(err);
