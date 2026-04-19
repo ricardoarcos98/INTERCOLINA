@@ -13,7 +13,12 @@ import {
   Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { inlinePitchImagesForCapture, preparePitchDomForCapture, waitForPitchImages } from '../utils/pitchExportCapture';
+import {
+  bakeTokenImagesForCapture,
+  inlinePitchImagesForCapture,
+  preparePitchDomForCapture,
+  waitForPitchImages,
+} from '../utils/pitchExportCapture';
 import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
@@ -745,10 +750,13 @@ function AppContent() {
     try {
       await waitForPitchImages(root);
       const undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
+      // Tras inline a data: URL, esperamos otro frame de carga/pintado antes de rasterizar.
+      await waitForPitchImages(root);
+      const undoBakedImgs = bakeTokenImagesForCapture(root);
       const undoDom = preparePitchDomForCapture(root);
       try {
         await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        await new Promise<void>((r) => setTimeout(r, 120));
+        await new Promise<void>((r) => setTimeout(r, 240));
         return await toPng(root, {
           cacheBust: true,
           pixelRatio: 2,
@@ -757,6 +765,7 @@ function AppContent() {
         });
       } finally {
         undoDom();
+        undoBakedImgs();
         undoInlineImgs();
       }
     } catch (err) {

@@ -53,6 +53,55 @@ export function preparePitchDomForCapture(root: HTMLElement): () => void {
   };
 }
 
+/**
+ * html-to-image puede omitir <img> dentro de contenedores redondos con overflow-hidden.
+ * Como fallback de export, pintamos la foto como background del token y ocultamos el <img>.
+ */
+export function bakeTokenImagesForCapture(root: HTMLElement): () => void {
+  const undo: Array<() => void> = [];
+
+  root.querySelectorAll('.pitch-token-face img').forEach((node) => {
+    const img = node as HTMLImageElement;
+    const face = img.parentElement as HTMLElement | null;
+    const src = img.currentSrc || img.src;
+    if (!face || !src) return;
+
+    const prevFace = {
+      backgroundImage: face.style.backgroundImage,
+      backgroundSize: face.style.backgroundSize,
+      backgroundPosition: face.style.backgroundPosition,
+      backgroundRepeat: face.style.backgroundRepeat,
+    };
+    const prevImg = {
+      opacity: img.style.opacity,
+      visibility: img.style.visibility,
+      pointerEvents: img.style.pointerEvents,
+    };
+
+    face.style.backgroundImage = `url("${src.replace(/"/g, '\\"')}")`;
+    face.style.backgroundSize = 'cover';
+    face.style.backgroundPosition = 'center top';
+    face.style.backgroundRepeat = 'no-repeat';
+
+    img.style.opacity = '0';
+    img.style.visibility = 'hidden';
+    img.style.pointerEvents = 'none';
+
+    undo.push(() => {
+      face.style.backgroundImage = prevFace.backgroundImage;
+      face.style.backgroundSize = prevFace.backgroundSize;
+      face.style.backgroundPosition = prevFace.backgroundPosition;
+      face.style.backgroundRepeat = prevFace.backgroundRepeat;
+
+      img.style.opacity = prevImg.opacity;
+      img.style.visibility = prevImg.visibility;
+      img.style.pointerEvents = prevImg.pointerEvents;
+    });
+  });
+
+  return () => undo.reverse().forEach((fn) => fn());
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -109,6 +158,13 @@ export async function inlinePitchImagesForCapture(
         if (!blob) return;
         const dataUrl = await blobToDataUrl(blob);
         img.src = dataUrl;
+        if (typeof img.decode === 'function') {
+          try {
+            await img.decode();
+          } catch {
+            // Si decode falla, dejamos que el flujo continúe.
+          }
+        }
       } catch {
         // Si falla (CORS o red), dejamos el src original.
       }
@@ -127,7 +183,7 @@ export async function waitForPitchImages(root: HTMLElement, timeoutMs = 15000): 
 
   const one = (img: HTMLImageElement) =>
     new Promise<void>((resolve) => {
-      if (!img.src || img.src.startsWith('data:')) {
+      if (!img.src) {
         resolve();
         return;
       }
