@@ -178,8 +178,18 @@ export async function inlinePitchImagesForCapture(
  * html-to-image rasteriza antes de que las fotos terminen de pintar → caras vacías.
  * Espera load/decode de todos los <img> dentro del nodo de la cancha.
  */
-export async function waitForPitchImages(root: HTMLElement, timeoutMs = 15000): Promise<void> {
-  const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+export async function waitForPitchImages(
+  root: HTMLElement,
+  timeoutMs = 15000,
+  minImageCount = 0,
+): Promise<void> {
+  const start = Date.now();
+  let imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+
+  while (imgs.length < minImageCount && Date.now() - start < timeoutMs) {
+    await new Promise<void>((r) => setTimeout(r, 60));
+    imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+  }
 
   const one = (img: HTMLImageElement) =>
     new Promise<void>((resolve) => {

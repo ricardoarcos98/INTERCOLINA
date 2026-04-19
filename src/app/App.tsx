@@ -745,13 +745,18 @@ function AppContent() {
   // Screenshot
   const captureImage = async () => {
     if (!pitchRef.current) return null;
+    if (loading) {
+      toast.message('Espera un momento: aún se están cargando los jugadores.');
+      return null;
+    }
     const root = pitchRef.current;
+    const expectedPhotos = pitchPlayers.filter((p) => p.isOnPitch && !!p.photoUrl).length;
     root.setAttribute('data-exporting', 'true');
     try {
-      await waitForPitchImages(root);
+      await waitForPitchImages(root, 15000, expectedPhotos);
       const undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
       // Tras inline a data: URL, esperamos otro frame de carga/pintado antes de rasterizar.
-      await waitForPitchImages(root);
+      await waitForPitchImages(root, 15000, expectedPhotos);
       const undoBakedImgs = bakeTokenImagesForCapture(root);
       const undoDom = preparePitchDomForCapture(root);
       try {
@@ -997,7 +1002,14 @@ function AppContent() {
                 </div>
               )}
             </div>
-            <button onClick={handleDownload} className={btn()} title="Descargar imagen"><Download className="w-4 h-4" /></button>
+            <button
+              onClick={handleDownload}
+              className={btn()}
+              title={loading ? 'Cargando plantilla...' : 'Descargar imagen'}
+              disabled={loading}
+            >
+              <Download className="w-4 h-4" />
+            </button>
             <button type="button" onClick={() => void handleSaveToCloud()} disabled={saving || editLocked}
               className={`${btn()} relative ${hasUnsaved ? 'animate-pulse' : ''}`}
               title={editLocked ? 'Desbloquea para guardar' : saving ? 'Guardando...' : hasUnsaved ? 'Guardar cambios' : 'Guardado'}>
