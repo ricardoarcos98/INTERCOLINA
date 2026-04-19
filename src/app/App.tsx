@@ -754,9 +754,22 @@ function AppContent() {
     root.setAttribute('data-exporting', 'true');
     try {
       await waitForPitchImages(root, 15000, expectedPhotos);
-      const undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
-      // Tras inline a data: URL, esperamos otro frame de carga/pintado antes de rasterizar.
-      await waitForPitchImages(root, 15000, expectedPhotos);
+      let undoInlineImgs: () => void = () => {};
+      // Reintentamos inline de fotos para evitar capturar placeholders oscuros.
+      for (let i = 0; i < 3; i += 1) {
+        undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
+        await waitForPitchImages(root, 15000, expectedPhotos);
+        const inlinedCount = root.querySelectorAll('.pitch-token-face img[src^="data:"]').length;
+        if (inlinedCount >= expectedPhotos) break;
+        undoInlineImgs();
+        undoInlineImgs = () => {};
+        await new Promise<void>((r) => setTimeout(r, 180));
+      }
+      const finalInlinedCount = root.querySelectorAll('.pitch-token-face img[src^="data:"]').length;
+      if (finalInlinedCount < expectedPhotos) {
+        toast.error('Aun no cargan todas las fotos. Intenta descargar de nuevo en 1-2 segundos.');
+        return null;
+      }
       const undoBakedImgs = bakeTokenImagesForCapture(root);
       const undoDom = preparePitchDomForCapture(root);
       try {
