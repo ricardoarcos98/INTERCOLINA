@@ -7,6 +7,15 @@ import { toast } from 'sonner';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
 
+async function readApiJson(res: Response): Promise<{ data: Record<string, unknown>; text: string }> {
+  const text = await res.text();
+  try {
+    return { data: text ? (JSON.parse(text) as Record<string, unknown>) : {}, text };
+  } catch {
+    return { data: {}, text };
+  }
+}
+
 type Props = {
   getPayload: () => TacticSnapshot;
   onApplySnapshot: (data: TacticSnapshot) => void;
@@ -80,9 +89,15 @@ export const SavedTacticsPanel: React.FC<Props> = ({
         },
         body: JSON.stringify({ name: n, ...p }),
       });
-      const data = await res.json();
+      const { data, text } = await readApiJson(res);
       if (!res.ok) {
-        toast.error(data.error || `Error al guardar (${res.status})`);
+        const msg =
+          typeof data.error === 'string'
+            ? data.error
+            : text
+              ? `Error ${res.status} (${text.slice(0, 120)}${text.length > 120 ? '…' : ''})`
+              : `Error al guardar (${res.status})`;
+        toast.error(msg);
         return;
       }
       setName('');
@@ -104,9 +119,11 @@ export const SavedTacticsPanel: React.FC<Props> = ({
       const res = await fetch(`${API_BASE}/saved-tactic/${id}`, {
         headers: { Authorization: `Bearer ${publicAnonKey}` },
       });
-      const data = await res.json();
+      const { data } = await readApiJson(res);
       if (!res.ok) {
-        toast.error(data.error || `No se pudo cargar (${res.status})`);
+        toast.error(
+          typeof data.error === 'string' ? data.error : `No se pudo cargar (${res.status})`,
+        );
         return;
       }
       const snap: TacticSnapshot = {
@@ -155,9 +172,15 @@ export const SavedTacticsPanel: React.FC<Props> = ({
         },
         body: JSON.stringify({ name: n, ...p }),
       });
-      const data = await res.json();
+      const { data, text } = await readApiJson(res);
       if (!res.ok) {
-        toast.error(data.error || `Error al actualizar (${res.status})`);
+        toast.error(
+          typeof data.error === 'string'
+            ? data.error
+            : text
+              ? `Error ${res.status}`
+              : `Error al actualizar (${res.status})`,
+        );
         return;
       }
       toast.success(`Copia "${n}" actualizada`);

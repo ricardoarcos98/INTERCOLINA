@@ -19,6 +19,9 @@ app.use(
   }),
 );
 
+/** Rutas API (montadas en / y en /make-server-f6cf3a30 según cómo Supabase envíe el path). */
+const routes = new Hono();
+
 const BUCKET_NAME = "make-e725a348-player-photos";
 
 // Initialize bucket on first request
@@ -38,13 +41,13 @@ const ensureBucket = async () => {
   bucketReady = true;
 };
 
-// Health check
-app.get("/make-server-f6cf3a30/health", (c) => {
+// Health check (path relativo al slug de la función en Supabase)
+routes.get("/health", (c) => {
   return c.json({ status: "ok" });
 });
 
 // Upload player photo
-app.post("/make-server-f6cf3a30/upload-photo", async (c) => {
+routes.post("/upload-photo", async (c) => {
   try {
     await ensureBucket();
     const supabase = createClient(
@@ -95,7 +98,7 @@ app.post("/make-server-f6cf3a30/upload-photo", async (c) => {
 });
 
 // Save tactic (formation + players + arrows)
-app.post("/make-server-f6cf3a30/save-tactic", async (c) => {
+routes.post("/save-tactic", async (c) => {
   try {
     const body = await c.req.json();
     const players = body.players || [];
@@ -155,7 +158,7 @@ app.post("/make-server-f6cf3a30/save-tactic", async (c) => {
 });
 
 // Load tactic
-app.get("/make-server-f6cf3a30/load-tactic/:id", async (c) => {
+routes.get("/load-tactic/:id", async (c) => {
   try {
     // Load metadata
     const [formation, arrows, opponents, lasers, customFormations, savedAt, playerNumbers, coachPhoto, coachName, captainId] =
@@ -205,7 +208,7 @@ app.get("/make-server-f6cf3a30/load-tactic/:id", async (c) => {
 });
 
 // List saved tactics (legacy: prefijo tactic- en KV)
-app.get("/make-server-f6cf3a30/tactics", async (c) => {
+routes.get("/tactics", async (c) => {
   try {
     const tactics = await kv.getByPrefix("tactic-");
     const parsed = tactics.map((t: any) => {
@@ -221,7 +224,7 @@ app.get("/make-server-f6cf3a30/tactics", async (c) => {
 const MAX_SAVED_SNAPSHOTS = 40;
 
 // Lista de tácticas guardadas (copias con nombre)
-app.get("/make-server-f6cf3a30/saved-tactics", async (c) => {
+routes.get("/saved-tactics", async (c) => {
   try {
     const index = await kv.get("saved-tactics-index");
     const list = Array.isArray(index) ? index : [];
@@ -233,7 +236,7 @@ app.get("/make-server-f6cf3a30/saved-tactics", async (c) => {
 });
 
 // Guardar copia nombrada de la táctica actual
-app.post("/make-server-f6cf3a30/save-snapshot", async (c) => {
+routes.post("/save-snapshot", async (c) => {
   try {
     const body = await c.req.json();
     const name = String(body.name || "").trim();
@@ -279,7 +282,7 @@ app.post("/make-server-f6cf3a30/save-snapshot", async (c) => {
 });
 
 // Cargar una copia completa
-app.get("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+routes.get("/saved-tactic/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const data = await kv.get(`saved-tactic-${id}`);
@@ -292,7 +295,7 @@ app.get("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
 });
 
 // Actualizar copia existente (misma pizarra + nombre opcional)
-app.put("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+routes.put("/saved-tactic/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const prev = await kv.get(`saved-tactic-${id}`);
@@ -333,7 +336,7 @@ app.put("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
 });
 
 // Eliminar copia
-app.delete("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+routes.delete("/saved-tactic/:id", async (c) => {
   try {
     const id = c.req.param("id");
     let index: any[] = (await kv.get("saved-tactics-index")) || [];
@@ -347,5 +350,8 @@ app.delete("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
     return c.json({ error: `Error delete snapshot: ${err}` }, 500);
   }
 });
+
+app.route("/", routes);
+app.route("/make-server-f6cf3a30", routes);
 
 Deno.serve(app.fetch);

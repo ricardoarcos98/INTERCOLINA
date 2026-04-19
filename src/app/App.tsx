@@ -538,7 +538,14 @@ function AppContent() {
       if (!silent) toast.success('Guardado en la nube!');
     } catch (err) {
       console.log('Error saving tactic:', err);
-      if (!silent) toast.error('Error de conexion');
+      if (!silent) {
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.error(
+          msg.includes('Failed to fetch') || msg.includes('NetworkError')
+            ? 'Sin conexión o bloqueo de red (revisa VPN/firewall)'
+            : `Error de conexión: ${msg}`,
+        );
+      }
     } finally {
       saveLockRef.current = false;
       setSaving(false);
