@@ -65,6 +65,8 @@ export function bakeTokenImagesForCapture(root: HTMLElement): () => void {
     const face = img.parentElement as HTMLElement | null;
     const src = img.currentSrc || img.src;
     if (!face || !src) return;
+    // Solo "hornear" imágenes que ya están realmente cargadas.
+    if (!(img.complete && img.naturalWidth > 0 && img.naturalHeight > 0)) return;
 
     const prevFace = {
       backgroundImage: face.style.backgroundImage,
@@ -183,51 +185,45 @@ export async function waitForPitchImages(
   timeoutMs = 15000,
   minImageCount = 0,
 ): Promise<void> {
-  const start = Date.now();
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  const started = Date.now();
   let imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
 
-  while (imgs.length < minImageCount && Date.now() - start < timeoutMs) {
-    await new Promise<void>((r) => setTimeout(r, 60));
+  while (imgs.length < minImageCount && Date.now() - started < timeoutMs) {
+    await sleep(60);
     imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
   }
 
-  const one = (img: HTMLImageElement) =>
-    new Promise<void>((resolve) => {
-      if (!img.src) {
-        resolve();
-        return;
-      }
-      const done = () => {
+  const one = async (img: HTMLImageElement) => {
+    if (!img.src) return;
+    const localStart = Date.now();
+    while (Date.now() - localStart < timeoutMs) {
+      if (img.complete && img.naturalHeight > 0 && img.naturalWidth > 0) {
         if (typeof img.decode === 'function') {
-          img.decode().then(() => resolve()).catch(() => resolve());
-        } else {
-          resolve();
+          try {
+            await img.decode();
+          } catch {
+            // ignore decode errors
+          }
         }
-      };
-      if (img.complete && img.naturalHeight > 0) {
-        done();
         return;
       }
-      const to = window.setTimeout(resolve, timeoutMs);
-      const clear = () => window.clearTimeout(to);
-      img.addEventListener(
-        'load',
-        () => {
-          clear();
-          done();
-        },
-        { once: true },
-      );
-      img.addEventListener(
-        'error',
-        () => {
-          clear();
-          resolve();
-        },
-        { once: true },
-      );
-    });
+      await sleep(50);
+    }
+  };
 
   await Promise.all(imgs.map(one));
+
+  // Si el caller exige un mínimo, esperamos a que estén realmente cargadas.
+  if (minImageCount > 0) {
+    while (Date.now() - started < timeoutMs) {
+      const loaded = Array.from(root.querySelectorAll('img')).filter(
+        (im) => im.complete && im.naturalWidth > 0 && im.naturalHeight > 0,
+      ).length;
+      if (loaded >= minImageCount) break;
+      await sleep(80);
+    }
+  }
+
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 }

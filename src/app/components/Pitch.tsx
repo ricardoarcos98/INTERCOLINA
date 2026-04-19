@@ -723,14 +723,14 @@ const PlayerToken: React.FC<{
         >
           {player.photoUrl ? (
             <img
-              src={player.photoUrl}
+              src={toProxyImageUrl(player.photoUrl)}
               alt={player.name}
               className="w-full h-full object-cover object-top pointer-events-none"
               draggable={false}
               crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
               onError={(e) => {
                 const current = e.currentTarget.currentSrc || e.currentTarget.src;
-                const fallback = toProxyImageUrl(player.photoUrl);
+                const fallback = player.photoUrl;
                 if (fallback && current !== fallback) {
                   e.currentTarget.src = fallback;
                 }
