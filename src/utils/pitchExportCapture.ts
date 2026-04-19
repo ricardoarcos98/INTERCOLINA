@@ -416,11 +416,15 @@ export async function paintTokenFacesToCanvasForCapture(
     const rect = img.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
-    const scale = Math.max(window.devicePixelRatio || 1, 2);
+    // Canvas por foto en 4x: html2canvas luego multiplica otra vez por su propia
+    // escala, pero tenerlo nativo evita reescalado con pérdida si html2canvas decide
+    // samplearlo a 1:1. Suficiente para cualquier export hasta 3x sin pixelado.
+    const isMobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const baseScale = Math.max(window.devicePixelRatio || 1, isMobileUA ? 3 : 4);
 
     const canvas = document.createElement('canvas');
-    canvas.width = w * scale;
-    canvas.height = h * scale;
+    canvas.width = w * baseScale;
+    canvas.height = h * baseScale;
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     canvas.style.display = 'block';
@@ -430,7 +434,9 @@ export async function paintTokenFacesToCanvasForCapture(
 
     const ctx = canvas.getContext('2d');
     if (!ctx) continue;
-    ctx.scale(scale, scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.scale(baseScale, baseScale);
 
     const iw = loaded.naturalWidth || loaded.width;
     const ih = loaded.naturalHeight || loaded.height;

@@ -832,14 +832,17 @@ function AppContent() {
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       await new Promise<void>((r) => setTimeout(r, 150));
       const undoPaint = preparePitchDomForCapture(root);
+      // Resolución final: 3x en desktop, 2.5x en móvil para no reventar memoria iOS.
+      const isMobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const exportScale = isMobileUA ? 2.5 : 3;
       try {
         try {
           const canvas = await html2canvas(root, {
             useCORS: true,
             allowTaint: true,
             backgroundColor: null,
-            scale: 2,
-            imageTimeout: 20000,
+            scale: exportScale,
+            imageTimeout: 30000,
             logging: false,
           });
           return canvas.toDataURL('image/png');
@@ -848,7 +851,7 @@ function AppContent() {
           try {
             return await toPng(root, {
               cacheBust: true,
-              pixelRatio: 2,
+              pixelRatio: exportScale,
               skipFonts: true,
               fetchRequestInit: { mode: 'cors', credentials: 'omit' },
             });
