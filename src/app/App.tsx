@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import { Player, Position, Formation, TacticalArrow, OpponentMarker, TacticSnapshot, LaserStroke } from './types';
 import { Pitch, PitchTool } from './components/Pitch';
 import { Sidebar } from './components/Sidebar';
@@ -14,10 +15,8 @@ import {
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
-  bakeTokenImagesForCapture,
-  inlinePitchImagesForCapture,
-  preparePitchDomForCapture,
-  waitForPitchImages,
+  inlineTokenFaceImagesForCapture,
+  waitForTokenFaceImages,
 } from '../utils/pitchExportCapture';
 import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
 
@@ -315,6 +314,7 @@ function AppContent() {
   // Save/Load state
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exportImagesReady, setExportImagesReady] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const initialLoadDone = useRef(false);
@@ -322,6 +322,46 @@ function AppContent() {
   const sentOffCount = players.filter((p) => p.isSentOff).length;
   const maxPlayersOnPitch = Math.max(0, 11 - sentOffCount);
   const pitchPlayers = players.filter((p) => p.isOnPitch);
+  const expectedPitchPhotos = pitchPlayers.filter((p) => !!p.photoUrl).length;
+
+  useEffect(() => {
+    if (loading) {
+      setExportImagesReady(false);
+      return;
+    }
+    if (expectedPitchPhotos === 0) {
+      setExportImagesReady(true);
+      return;
+    }
+    const root = pitchRef.current;
+    if (!root) {
+      setExportImagesReady(false);
+      return;
+    }
+    let cancelled = false;
+    let stableTicks = 0;
+    const tick = () => {
+      if (cancelled) return;
+      const loaded = (Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[]).filter(
+        (img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0,
+      ).length;
+      if (loaded >= expectedPitchPhotos) {
+        stableTicks += 1;
+        if (stableTicks >= 3) {
+          setExportImagesReady(true);
+          return;
+        }
+      } else {
+        stableTicks = 0;
+        setExportImagesReady(false);
+      }
+      window.setTimeout(tick, 120);
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, expectedPitchPhotos, pitchPlayers.length]);
 
   const tacticSnapshot = useRef({
     players,
@@ -749,32 +789,50 @@ function AppContent() {
       toast.message('Espera un momento: aún se están cargando los jugadores.');
       return null;
     }
+    if (!exportImagesReady) {
+      toast.message('Aun se estan preparando las fotos. Intenta en 1 segundo.');
+      return null;
+    }
     const root = pitchRef.current;
-    const expectedPhotos = pitchPlayers.filter((p) => p.isOnPitch && !!p.photoUrl).length;
+    const expectedPhotos = expectedPitchPhotos;
     root.setAttribute('data-exporting', 'true');
     try {
-      await waitForPitchImages(root, 15000, expectedPhotos);
-      let undoInlineImgs: () => void = () => {};
-      // Reintentamos inline de fotos para evitar capturar placeholders oscuros.
-      for (let i = 0; i < 3; i += 1) {
-        undoInlineImgs = await inlinePitchImagesForCapture(root, { proxyBase: API_BASE });
-        await waitForPitchImages(root, 15000, expectedPhotos);
-        const inlinedCount = root.querySelectorAll('.pitch-token-face img[src^="data:"]').length;
-        if (inlinedCount >= expectedPhotos) break;
-        undoInlineImgs();
-        undoInlineImgs = () => {};
-        await new Promise<void>((r) => setTimeout(r, 180));
+      await waitForTokenFaceImages(root, expectedPhotos, 15000);
+      // Evita capturar el estado inicial: pedimos estabilidad de fotos cargadas.
+      if (expectedPhotos > 0) {
+        let stableTicks = 0;
+        for (let i = 0; i < 12; i += 1) {
+          const loaded = (Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[]).filter(
+            (img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0,
+          ).length;
+          if (loaded >= expectedPhotos) {
+            stableTicks += 1;
+            if (stableTicks >= 3) break;
+          } else {
+            stableTicks = 0;
+          }
+          await new Promise<void>((r) => setTimeout(r, 110));
+        }
       }
-      const finalInlinedCount = root.querySelectorAll('.pitch-token-face img[src^="data:"]').length;
-      if (finalInlinedCount < expectedPhotos) {
-        toast.error('Aun no cargan todas las fotos. Intenta descargar de nuevo en 1-2 segundos.');
+      const { undo: undoInline, inlinedCount } = await inlineTokenFaceImagesForCapture(root, { proxyBase: API_BASE });
+      if (inlinedCount < expectedPhotos) {
+        undoInline();
+        toast.error('No se pudieron preparar todas las fotos para la descarga. Reintenta en 1-2 segundos.');
         return null;
       }
-      const undoBakedImgs = bakeTokenImagesForCapture(root);
-      const undoDom = preparePitchDomForCapture(root);
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      await new Promise<void>((r) => setTimeout(r, 200));
       try {
-        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        await new Promise<void>((r) => setTimeout(r, 240));
+        const canvas = await html2canvas(root, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          scale: 2,
+          imageTimeout: 20000,
+          logging: false,
+        });
+        return canvas.toDataURL('image/png');
+      } catch {
         return await toPng(root, {
           cacheBust: true,
           pixelRatio: 2,
@@ -782,9 +840,7 @@ function AppContent() {
           fetchRequestInit: { mode: 'cors', credentials: 'omit' },
         });
       } finally {
-        undoDom();
-        undoBakedImgs();
-        undoInlineImgs();
+        undoInline();
       }
     } catch (err) {
       console.error(err);
@@ -1018,8 +1074,8 @@ function AppContent() {
             <button
               onClick={handleDownload}
               className={btn()}
-              title={loading ? 'Cargando plantilla...' : 'Descargar imagen'}
-              disabled={loading}
+              title={loading ? 'Cargando plantilla...' : !exportImagesReady ? 'Preparando fotos...' : 'Descargar imagen'}
+              disabled={loading || !exportImagesReady}
             >
               <Download className="w-4 h-4" />
             </button>

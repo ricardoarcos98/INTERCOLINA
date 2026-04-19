@@ -177,6 +177,63 @@ export async function inlinePitchImagesForCapture(
 }
 
 /**
+ * Inline exclusivo para fotos de jugadores en cancha (.pitch-token-face img).
+ * Devuelve cuántas logró convertir a data URL para validar captura segura.
+ */
+export async function inlineTokenFaceImagesForCapture(
+  root: HTMLElement,
+  opts?: { proxyBase?: string },
+): Promise<{ undo: () => void; inlinedCount: number }> {
+  const imgs = Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[];
+  const undo: Array<() => void> = [];
+  let inlinedCount = 0;
+
+  const fetchAsBlob = async (url: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) return null;
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.startsWith('image/')) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  };
+
+  for (const img of imgs) {
+    const src = img.currentSrc || img.src;
+    if (!src || src.startsWith('data:')) {
+      inlinedCount += src.startsWith('data:') ? 1 : 0;
+      continue;
+    }
+    const prev = { src: img.src, srcset: img.srcset };
+    let blob = await fetchAsBlob(src);
+    if (!blob && opts?.proxyBase && /^https?:\/\//i.test(src)) {
+      const proxied = `${opts.proxyBase.replace(/\/$/, '')}/image-proxy?url=${encodeURIComponent(src)}`;
+      blob = await fetchAsBlob(proxied);
+    }
+    if (!blob) continue;
+    const dataUrl = await blobToDataUrl(blob);
+    undo.push(() => {
+      img.srcset = prev.srcset;
+      img.src = prev.src;
+    });
+    img.srcset = '';
+    img.src = dataUrl;
+    if (typeof img.decode === 'function') {
+      try {
+        await img.decode();
+      } catch {
+        // ignore
+      }
+    }
+    inlinedCount += 1;
+  }
+
+  return { undo: () => undo.reverse().forEach((fn) => fn()), inlinedCount };
+}
+
+/**
  * html-to-image rasteriza antes de que las fotos terminen de pintar → caras vacías.
  * Espera load/decode de todos los <img> dentro del nodo de la cancha.
  */
@@ -226,4 +283,24 @@ export async function waitForPitchImages(
   }
 
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+}
+
+/**
+ * Espera específicamente las imágenes de los tokens (caras de jugadores).
+ * Evita falsos positivos por otros <img> del layout.
+ */
+export async function waitForTokenFaceImages(
+  root: HTMLElement,
+  expectedCount: number,
+  timeoutMs = 15000,
+): Promise<void> {
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const tokenImgs = Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[];
+    const loaded = tokenImgs.filter((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0).length;
+    if (loaded >= expectedCount) return;
+    await sleep(80);
+  }
 }
