@@ -42,7 +42,9 @@ export const SavedTacticsPanel: React.FC<Props> = ({
         headers: { Authorization: `Bearer ${publicAnonKey}` },
       });
       if (!res.ok) {
-        console.error(await res.text());
+        const t = await res.text();
+        console.error('saved-tactics', res.status, t);
+        toast.error(res.status === 404 ? 'Función no desplegada (404)' : `Error ${res.status}`);
         return;
       }
       const data = await res.json();
@@ -77,7 +79,7 @@ export const SavedTacticsPanel: React.FC<Props> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || 'Error al guardar copia');
+        toast.error(data.error || `Error al guardar (${res.status})`);
         return;
       }
       setName('');
@@ -101,7 +103,7 @@ export const SavedTacticsPanel: React.FC<Props> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || 'No se pudo cargar');
+        toast.error(data.error || `No se pudo cargar (${res.status})`);
         return;
       }
       const snap: TacticSnapshot = {
@@ -129,7 +131,7 @@ export const SavedTacticsPanel: React.FC<Props> = ({
         headers: { Authorization: `Bearer ${publicAnonKey}` },
       });
       if (!res.ok) {
-        toast.error('No se pudo eliminar');
+        toast.error(`No se pudo eliminar (${res.status})`);
         return;
       }
       toast.success('Eliminada');
