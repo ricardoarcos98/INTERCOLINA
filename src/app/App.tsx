@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { Player, Position, Formation, TacticalArrow, OpponentMarker, TacticSnapshot, LaserStroke } from './types';
 import { Pitch, PitchTool } from './components/Pitch';
 import { Sidebar } from './components/Sidebar';
