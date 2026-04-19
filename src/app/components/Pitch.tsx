@@ -4,8 +4,16 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Player, TacticalArrow, OpponentMarker, LaserStroke, Position } from '../types';
 import { positionTokenBorderClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
+import { projectId } from '/utils/supabase/info';
 
 export type PitchTool = 'move' | 'draw' | 'opponent' | 'laser' | 'pen' | 'swap';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
+
+function toProxyImageUrl(url: string): string {
+  if (!/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE}/image-proxy?url=${encodeURIComponent(url)}`;
+}
 
 type EphemeralLaserStroke = { id: string; points: { x: number; y: number }[]; color: string };
 
@@ -720,6 +728,13 @@ const PlayerToken: React.FC<{
               className="w-full h-full object-cover object-top pointer-events-none"
               draggable={false}
               crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
+              onError={(e) => {
+                const current = e.currentTarget.currentSrc || e.currentTarget.src;
+                const fallback = toProxyImageUrl(player.photoUrl);
+                if (fallback && current !== fallback) {
+                  e.currentTarget.src = fallback;
+                }
+              }}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-b from-slate-700 to-slate-900 flex items-center justify-center">
