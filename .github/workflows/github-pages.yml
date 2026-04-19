@@ -26,10 +26,21 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Build (base = nombre del repo)
-        env:
-          VITE_BASE: /${{ github.event.repository.name }}/
-        run: npm run build
+      # Sitio de usuario/org: repo "usuario.github.io" → la web va en la raíz, base debe ser "/".
+      # Sitio de proyecto: repo "mi-app" → la web va en /mi-app/, base = "/mi-app/".
+      - name: Build (Vite base según tipo de Pages)
+        run: |
+          set -euo pipefail
+          NAME="${{ github.event.repository.name }}"
+          LOWER="${NAME,,}"
+          if [[ "${LOWER}" == *.github.io ]]; then
+            export VITE_BASE=/
+            echo "Repo de usuario/org Pages → VITE_BASE=/"
+          else
+            export VITE_BASE="/${NAME}/"
+            echo "Repo de proyecto Pages → VITE_BASE=${VITE_BASE}"
+          fi
+          npm run build
       - name: SPA fallback para rutas directas
         run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
