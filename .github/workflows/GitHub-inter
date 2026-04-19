@@ -1,0 +1,58 @@
+# Publica la app en GitHub Pages al hacer push a main o master.
+# Activa Pages en el repo: Settings → Pages → Source: GitHub Actions.
+# La URL será: https://<usuario>.github.io/<nombre-del-repo>/
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # Sitio de usuario/org: repo "usuario.github.io" → la web va en la raíz, base debe ser "/".
+      # Sitio de proyecto: repo "mi-app" → la web va en /mi-app/, base = "/mi-app/".
+      - name: Build (Vite base según tipo de Pages)
+        run: |
+          set -euo pipefail
+          NAME="${{ github.event.repository.name }}"
+          LOWER="${NAME,,}"
+          if [[ "${LOWER}" == *.github.io ]]; then
+            export VITE_BASE=/
+            echo "Repo de usuario/org Pages → VITE_BASE=/"
+          else
+            export VITE_BASE="/${NAME}/"
+            echo "Repo de proyecto Pages → VITE_BASE=${VITE_BASE}"
+          fi
+          npm run build
+      - name: SPA fallback para rutas directas
+        run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
