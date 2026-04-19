@@ -1,19 +1,26 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
-import { Player, Position, Formation, TacticalArrow, OpponentMarker, TacticSnapshot } from './types';
+import { Player, Position, Formation, TacticalArrow, OpponentMarker, TacticSnapshot, LaserStroke } from './types';
 import { Pitch, PitchTool } from './components/Pitch';
 import { Sidebar } from './components/Sidebar';
 import { SavedTacticsPanel } from './components/SavedTacticsPanel';
-import { ThemeProvider, useTheme, GRASS_COLORS } from './components/ThemeContext';
+import { CoachCard } from './components/CoachCard';
+import { ThemeProvider, useTheme, GRASS_COLORS, GRASS_CUT_OPTIONS } from './components/ThemeContext';
 import { Toaster, toast } from 'sonner';
 import {
-  Sun, Moon, Palette, Download, Pencil, Trash2, Minus, Spline, CornerDownRight,
-  Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, CloudOff, Cloud, Loader2
+  Sun, Moon, Palette, Download, Pencil, PenLine, Trash2, Minus, Spline, CornerDownRight,
+  Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, Cloud, Loader2,
+  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { preparePitchDomForCapture } from '../utils/pitchExportCapture';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
 const TACTIC_KEY = 'tactic-main';
+const EDIT_PIN = '131298';
+const EDIT_UNLOCK_SESSION_KEY = 'intercolina-edit-unlock';
+const COACH_STORAGE_KEY = 'intercolina-coach-v1';
+const CAPTAIN_STORAGE_KEY = 'intercolina-captain-v1';
 
 const INITIAL_PLAYERS: Player[] = [
   // --- 11 Titulares (4-3-3) ---
@@ -90,7 +97,7 @@ export const FORMATIONS: Formation[] = [
 const ARROW_COLORS = ['#facc15', '#ef4444', '#3b82f6', '#10b981', '#f97316', '#ffffff'];
 
 type TacticalToolbarProps = {
-  variant: 'rail' | 'mobile';
+  variant: 'rail' | 'mobile' | 'dock';
   btn: (active?: boolean) => string;
   isDark: boolean;
   activeTool: PitchTool;
@@ -101,6 +108,10 @@ type TacticalToolbarProps = {
   setArrowColor: (c: string) => void;
   setArrows: React.Dispatch<React.SetStateAction<TacticalArrow[]>>;
   setOpponents: React.Dispatch<React.SetStateAction<OpponentMarker[]>>;
+  laserStrokes: LaserStroke[];
+  setLaserStrokes: React.Dispatch<React.SetStateAction<LaserStroke[]>>;
+  /** Edición bloqueada: desactiva herramientas tácticas */
+  disabled?: boolean;
 };
 
 function TacticalToolbar({
@@ -115,34 +126,46 @@ function TacticalToolbar({
   setArrowColor,
   setArrows,
   setOpponents,
+  laserStrokes,
+  setLaserStrokes,
+  disabled = false,
 }: TacticalToolbarProps) {
-  const rail = variant === 'rail';
+  const verticalToolLayout = variant === 'rail' || variant === 'dock';
   const sep = (
     <div
-      className={`shrink-0 ${rail ? `h-px w-6 ${isDark ? 'bg-white/10' : 'bg-gray-200'}` : `w-px h-7 self-center ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}`}
+      className={`shrink-0 ${verticalToolLayout ? `h-px w-6 ${isDark ? 'bg-white/10' : 'bg-gray-200'}` : `w-px h-7 self-center ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}`}
       aria-hidden
     />
   );
 
   const tools = (
     <>
-      <button type="button" onClick={() => setActiveTool('move')} className={btn(activeTool === 'move')} title="Mover">
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('move')} className={btn(activeTool === 'move')} title="Mover">
         <Move className="w-4 h-4" />
       </button>
-      <button type="button" onClick={() => setActiveTool('draw')} className={btn(activeTool === 'draw')} title="Flechas">
-        <Pencil className="w-4 h-4" />
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('draw')} className={btn(activeTool === 'draw')} title="Flechas tácticas">
+        <PenLine className="w-4 h-4" />
       </button>
-      <button type="button" onClick={() => setActiveTool('opponent')} className={btn(activeTool === 'opponent')} title="Rivales">
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('opponent')} className={btn(activeTool === 'opponent')} title="Rivales">
         <Circle className="w-4 h-4" />
       </button>
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('laser')} className={btn(activeTool === 'laser')} title="Láser (se borra solo, estilo Excalidraw)">
+        <Sparkles className="w-4 h-4" />
+      </button>
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('pen')} className={btn(activeTool === 'pen')} title="Lápiz (marca fija en la planilla)">
+        <Pencil className="w-4 h-4" />
+      </button>
+      <button type="button" disabled={disabled} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Intercambiar titulares (2 toques)">
+        <ArrowLeftRight className="w-4 h-4" />
+      </button>
       {sep}
-      <button type="button" onClick={() => setArrowStyle('solid')} className={btn(arrowStyle === 'solid')} title="Solida">
+      <button type="button" disabled={disabled} onClick={() => setArrowStyle('solid')} className={btn(arrowStyle === 'solid')} title="Solida">
         <Minus className="w-4 h-4" />
       </button>
-      <button type="button" onClick={() => setArrowStyle('dashed')} className={btn(arrowStyle === 'dashed')} title="Punteada">
+      <button type="button" disabled={disabled} onClick={() => setArrowStyle('dashed')} className={btn(arrowStyle === 'dashed')} title="Punteada">
         <span className="text-[10px] font-bold tracking-widest">--</span>
       </button>
-      <button type="button" onClick={() => setArrowStyle('curved')} className={btn(arrowStyle === 'curved')} title="Curva">
+      <button type="button" disabled={disabled} onClick={() => setArrowStyle('curved')} className={btn(arrowStyle === 'curved')} title="Curva">
         <Spline className="w-4 h-4" />
       </button>
       {sep}
@@ -150,6 +173,7 @@ function TacticalToolbar({
         <button
           key={c}
           type="button"
+          disabled={disabled}
           onClick={() => setArrowColor(c)}
           className={`w-5 h-5 shrink-0 rounded-full border-2 hover:scale-110 transition-transform ${arrowColor === c ? 'border-white scale-110' : 'border-white/20'}`}
           style={{ backgroundColor: c }}
@@ -158,14 +182,25 @@ function TacticalToolbar({
         />
       ))}
       {sep}
-      <button type="button" onClick={() => setArrows((p) => p.slice(0, -1))} className={btn()} title="Deshacer flecha">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (laserStrokes.length > 0) setLaserStrokes((ls) => ls.slice(0, -1));
+          else setArrows((p) => p.slice(0, -1));
+        }}
+        className={btn()}
+        title="Deshacer último trazo de lápiz o flecha"
+      >
         <CornerDownRight className="w-4 h-4 rotate-180" />
       </button>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => {
           setArrows([]);
           setOpponents([]);
+          setLaserStrokes([]);
           toast('Limpiado');
         }}
         className={btn()}
@@ -176,12 +211,26 @@ function TacticalToolbar({
     </>
   );
 
-  if (rail) {
+  if (variant === 'dock') {
+    return (
+      <div
+        className={`hidden md:flex shrink-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-20 self-start sticky top-2 touch-manipulation ${
+          isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white/95 border-gray-200'
+        } shadow-lg backdrop-blur-sm ${disabled ? 'opacity-50' : ''}`}
+        role="toolbar"
+        aria-label="Toolkit del entrenador"
+      >
+        {tools}
+      </div>
+    );
+  }
+
+  if (variant === 'rail') {
     return (
       <div
         className={`hidden md:flex absolute -left-12 md:-left-14 top-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-10 ${
           isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/90 border-gray-200'
-        } backdrop-blur-sm`}
+        } backdrop-blur-sm ${disabled ? 'opacity-50' : ''}`}
       >
         {tools}
       </div>
@@ -192,7 +241,7 @@ function TacticalToolbar({
     <div
       className={`md:hidden w-full mb-2 flex flex-row flex-wrap items-center justify-center gap-1.5 p-2 rounded-xl border z-10 touch-manipulation ${
         isDark ? 'bg-slate-900/85 border-white/10' : 'bg-white/95 border-gray-200'
-      } shadow-sm`}
+      } shadow-sm ${disabled ? 'opacity-50' : ''}`}
     >
       {tools}
     </div>
@@ -200,7 +249,7 @@ function TacticalToolbar({
 }
 
 function AppContent() {
-  const { isDark, toggleTheme, grassColor, setGrassColor } = useTheme();
+  const { isDark, toggleTheme, grassColor, setGrassColor, grassCut, setGrassCut } = useTheme();
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [currentFormation, setCurrentFormation] = useState('4-3-3');
@@ -213,7 +262,21 @@ function AppContent() {
   const [arrowStyle, setArrowStyle] = useState<'solid' | 'dashed' | 'curved'>('solid');
 
   const [opponents, setOpponents] = useState<OpponentMarker[]>([]);
-
+  const [laserStrokes, setLaserStrokes] = useState<LaserStroke[]>([]);
+  const [swapPendingId, setSwapPendingId] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [coachPhotoUrl, setCoachPhotoUrl] = useState('');
+  const [coachName, setCoachName] = useState('D.T.');
+  const [editUnlocked, setEditUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem(EDIT_UNLOCK_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(null);
   // Custom formation
   const [allFormations, setAllFormations] = useState<Formation[]>(FORMATIONS);
   const [showCreateFormation, setShowCreateFormation] = useState(false);
@@ -238,10 +301,79 @@ function AppContent() {
     opponents,
     currentFormation,
     allFormations,
+    laserStrokes,
   });
-  tacticSnapshot.current = { players, arrows, opponents, currentFormation, allFormations };
+  tacticSnapshot.current = { players, arrows, opponents, currentFormation, allFormations, laserStrokes };
 
   const saveLockRef = useRef(false);
+
+  useEffect(() => {
+    if (activeTool !== 'swap') setSwapPendingId(null);
+  }, [activeTool]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COACH_STORAGE_KEY);
+      if (!raw) return;
+      const j = JSON.parse(raw) as { photoUrl?: string; name?: string };
+      if (typeof j.photoUrl === 'string') setCoachPhotoUrl(j.photoUrl);
+      if (typeof j.name === 'string') setCoachName(j.name);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CAPTAIN_STORAGE_KEY);
+      if (!raw) return;
+      const j = JSON.parse(raw) as { id?: string };
+      if (typeof j.id === 'string' && j.id) setCaptainPlayerId(j.id);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COACH_STORAGE_KEY, JSON.stringify({ photoUrl: coachPhotoUrl, name: coachName }));
+    } catch {
+      /* ignore */
+    }
+  }, [coachPhotoUrl, coachName]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CAPTAIN_STORAGE_KEY, JSON.stringify({ id: captainPlayerId ?? '' }));
+    } catch {
+      /* ignore */
+    }
+  }, [captainPlayerId]);
+
+  useEffect(() => {
+    if (focusMode) setSidebarOpen(false);
+  }, [focusMode]);
+
+  useEffect(() => {
+    try {
+      if (editUnlocked) sessionStorage.setItem(EDIT_UNLOCK_SESSION_KEY, '1');
+      else sessionStorage.removeItem(EDIT_UNLOCK_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [editUnlocked]);
+
+  useEffect(() => {
+    if (pinModalOpen) setPinInput('');
+  }, [pinModalOpen]);
+
+  useEffect(() => {
+    setCaptainPlayerId((cap) => {
+      if (!cap) return cap;
+      const ok = players.some((p) => p.id === cap && p.isOnPitch);
+      return ok ? cap : null;
+    });
+  }, [players]);
 
   const getTacticPayload = useCallback((): TacticSnapshot => {
     const s = tacticSnapshot.current;
@@ -251,24 +383,64 @@ function AppContent() {
       opponents: s.opponents,
       formation: s.currentFormation,
       customFormations: s.allFormations.filter((f) => f.isCustom),
+      laserStrokes: s.laserStrokes,
+      captainPlayerId,
     };
-  }, []);
+  }, [captainPlayerId]);
 
   const handleApplySnapshot = useCallback((snap: TacticSnapshot) => {
     setPlayers(snap.players);
     setArrows(snap.arrows);
     setOpponents(snap.opponents);
+    setLaserStrokes(snap.laserStrokes ?? []);
     setCurrentFormation(snap.formation);
     setAllFormations([...FORMATIONS, ...snap.customFormations]);
     setSelectedPlayerId(null);
+    const cap = snap.captainPlayerId;
+    const ok = typeof cap === 'string' && cap && snap.players.some((p) => p.id === cap && p.isOnPitch);
+    setCaptainPlayerId(ok ? cap : null);
   }, []);
+
+  const handleSwapTitularPick = useCallback(
+    (id: string) => {
+      const p = players.find((x) => x.id === id);
+      if (!p?.isOnPitch) {
+        toast.error('Solo titulares en el campo');
+        return;
+      }
+      if (!swapPendingId) {
+        setSwapPendingId(id);
+        toast.message('Toca otro titular para intercambiar posición y rol');
+        return;
+      }
+      if (swapPendingId === id) {
+        setSwapPendingId(null);
+        toast('Cancelado');
+        return;
+      }
+      const aId = swapPendingId;
+      setSwapPendingId(null);
+      setPlayers((ps) => {
+        const a = ps.find((x) => x.id === aId);
+        const b = ps.find((x) => x.id === id);
+        if (!a || !b) return ps;
+        return ps.map((pl) => {
+          if (pl.id === aId) return { ...pl, pitchX: b.pitchX, pitchY: b.pitchY, position: b.position };
+          if (pl.id === id) return { ...pl, pitchX: a.pitchX, pitchY: a.pitchY, position: a.position };
+          return pl;
+        });
+      });
+      toast.success('Intercambio listo');
+    },
+    [players, swapPendingId],
+  );
 
   // Mark unsaved when data changes (after initial load)
   useEffect(() => {
     if (initialLoadDone.current) {
       setHasUnsaved(true);
     }
-  }, [players, arrows, opponents, currentFormation, allFormations]);
+  }, [players, arrows, opponents, currentFormation, allFormations, laserStrokes, coachPhotoUrl, coachName, captainPlayerId]);
 
   // Load tactic from Supabase on mount
   useEffect(() => {
@@ -286,6 +458,15 @@ function AppContent() {
           if (data.customFormations) {
             setAllFormations([...FORMATIONS, ...data.customFormations]);
           }
+          if (Array.isArray(data.laserStrokes)) setLaserStrokes(data.laserStrokes);
+          if (typeof data.coachPhotoUrl === 'string' && data.coachPhotoUrl) setCoachPhotoUrl(data.coachPhotoUrl);
+          if (typeof data.coachName === 'string' && data.coachName.trim()) setCoachName(data.coachName.trim());
+          if (Object.prototype.hasOwnProperty.call(data, 'captainPlayerId')) {
+            const cap = data.captainPlayerId as string | null | undefined;
+            const pl = data.players as Player[] | undefined;
+            if (typeof cap === 'string' && cap && pl?.some((p) => p.id === cap && p.isOnPitch)) setCaptainPlayerId(cap);
+            else setCaptainPlayerId(null);
+          }
           console.log('Tactic loaded from Supabase');
         } else if (res.status !== 404) {
           console.log('Error loading tactic:', await res.text());
@@ -302,6 +483,10 @@ function AppContent() {
 
   // Save tactic to Supabase (lee tacticSnapshot; `override` si acabas de cargar una copia y el ref aún no actualizó)
   const handleSaveToCloud = useCallback(async (silent = false, override?: TacticSnapshot) => {
+    if (!editUnlocked) {
+      if (!silent) toast.error('Edición bloqueada. Usa el candado e introduce el PIN.');
+      return;
+    }
     if (saveLockRef.current) return;
     saveLockRef.current = true;
     setSaving(true);
@@ -309,13 +494,15 @@ function AppContent() {
       const src =
         override ??
         (() => {
-          const { players: p, arrows: a, opponents: o, currentFormation: f, allFormations: af } = tacticSnapshot.current;
+          const { players: p, arrows: a, opponents: o, currentFormation: f, allFormations: af, laserStrokes: ls } =
+            tacticSnapshot.current;
           return {
             players: p,
             arrows: a,
             opponents: o,
             formation: f,
             customFormations: af.filter((fm) => fm.isCustom),
+            laserStrokes: ls,
           } satisfies TacticSnapshot;
         })();
       const body = {
@@ -325,6 +512,10 @@ function AppContent() {
         opponents: src.opponents,
         formation: src.formation,
         customFormations: src.customFormations,
+        laserStrokes: src.laserStrokes ?? [],
+        coachPhotoUrl,
+        coachName,
+        captainPlayerId,
         savedAt: new Date().toISOString(),
       };
       const res = await fetch(`${API_BASE}/save-tactic`, {
@@ -351,16 +542,16 @@ function AppContent() {
       saveLockRef.current = false;
       setSaving(false);
     }
-  }, []);
+  }, [coachPhotoUrl, coachName, captainPlayerId, editUnlocked]);
 
-  // Autosave con debounce (tras foto/URL ya se fuerza guardado desde Sidebar)
+  // Autosave con debounce (tras subir foto del DT se fuerza guardado desde Sidebar)
   useEffect(() => {
-    if (!hasUnsaved || !initialLoadDone.current) return;
+    if (!hasUnsaved || !initialLoadDone.current || !editUnlocked) return;
     const timer = setTimeout(() => {
       handleSaveToCloud(true);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [hasUnsaved, players, arrows, opponents, currentFormation, allFormations, handleSaveToCloud]);
+  }, [hasUnsaved, players, arrows, opponents, currentFormation, allFormations, laserStrokes, coachPhotoUrl, coachName, captainPlayerId, editUnlocked, handleSaveToCloud]);
 
   const handlePlayerMove = (id: string, x: number, y: number) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, pitchX: x, pitchY: y } : p));
 
@@ -384,6 +575,7 @@ function AppContent() {
       toast.error(`${p.name} eliminado`);
     }
     if (selectedPlayerId === id) setSelectedPlayerId(null);
+    setCaptainPlayerId((prev) => (prev === id ? null : prev));
   };
 
   const handleSendToPitch = (id: string) => {
@@ -394,7 +586,7 @@ function AppContent() {
     toast.success(`${p.name} al campo`);
   };
 
-  const handleSubstitution = (onPitchId: string, benchId: string) => {
+  const handleSubstitution = useCallback((onPitchId: string, benchId: string) => {
     const onP = players.find(p => p.id === onPitchId);
     const bench = players.find(p => p.id === benchId);
     if (!onP || !bench) return;
@@ -403,9 +595,23 @@ function AppContent() {
       if (p.id === benchId) return { ...p, isOnPitch: true, pitchX: onP.pitchX, pitchY: onP.pitchY };
       return p;
     }));
+    setCaptainPlayerId((prev) => (prev === onPitchId ? benchId : prev));
     toast.success(`${bench.name} entra por ${onP.name}`);
     setSelectedPlayerId(benchId);
-  };
+  }, [players]);
+
+  const handleSetCaptain = useCallback(
+    (playerId: string) => {
+      const p = players.find((pl) => pl.id === playerId);
+      if (!p?.isOnPitch) {
+        toast.error('El capitán debe ser titular en el campo');
+        return;
+      }
+      if (captainPlayerId !== playerId) toast.success('Capitán actualizado');
+      setCaptainPlayerId(playerId);
+    },
+    [players, captainPlayerId],
+  );
 
   const handleApplyFormation = (name: string) => {
     const f = allFormations.find(fm => fm.name === name);
@@ -442,8 +648,23 @@ function AppContent() {
   // Screenshot
   const captureImage = async () => {
     if (!pitchRef.current) return null;
-    try { return await toPng(pitchRef.current, { cacheBust: true, pixelRatio: 2 }); }
-    catch { toast.error('Error'); return null; }
+    const root = pitchRef.current;
+    root.setAttribute('data-exporting', 'true');
+    const undoDom = preparePitchDomForCapture(root);
+    try {
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return await toPng(root, {
+        cacheBust: true,
+        pixelRatio: 2,
+        skipFonts: true,
+      });
+    } catch {
+      toast.error('Error');
+      return null;
+    } finally {
+      undoDom();
+      root.removeAttribute('data-exporting');
+    }
   };
 
   const handleDownload = async () => {
@@ -459,6 +680,9 @@ function AppContent() {
   const bg = isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-100 text-gray-900';
   const btn = (active = false) => `p-2 rounded-lg transition-all border shrink-0 ${active ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : isDark ? 'bg-white/10 hover:bg-white/20 border-white/10 text-slate-300' : 'bg-white hover:bg-gray-200 border-gray-200 text-gray-600'}`;
   const mut = isDark ? 'text-slate-400' : 'text-gray-500';
+  const editLocked = !editUnlocked;
+  /** Modo foco y césped siguen disponibles con el candado activo. */
+  const pitchToolsLocked = editLocked && !focusMode;
 
   const LEGEND = [
     { pos: 'ARQ' as Position, color: 'bg-orange-500', shadow: 'rgba(249,115,22,0.5)' },
@@ -476,11 +700,84 @@ function AppContent() {
       } : {}}>
       <Toaster position="top-center" theme={isDark ? 'dark' : 'light'} />
 
+      {pinModalOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pin-modal-title"
+          onClick={() => setPinModalOpen(false)}
+        >
+          <div
+            className={`w-full max-w-sm rounded-2xl border p-5 shadow-2xl ${isDark ? 'border-white/10 bg-slate-900 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="pin-modal-title" className="text-lg font-black tracking-tight text-emerald-500">
+              Desbloquear edición
+            </h2>
+            <p className={`mt-2 text-xs ${mut}`}>Introduce el PIN para modificar plantilla, cancha y táctica.</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (pinInput.trim() === EDIT_PIN) {
+                    setEditUnlocked(true);
+                    setPinModalOpen(false);
+                    setPinInput('');
+                    toast.success('Edición desbloqueada');
+                  } else {
+                    toast.error('PIN incorrecto');
+                  }
+                }
+              }}
+              className={`mt-4 w-full rounded-xl border px-3 py-2.5 text-sm font-mono tracking-widest focus:border-emerald-500 focus:outline-none ${isDark ? 'border-slate-600 bg-slate-950' : 'border-gray-300 bg-gray-50'}`}
+              placeholder="PIN"
+              autoFocus
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setPinModalOpen(false)} className={btn()}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pinInput.trim() === EDIT_PIN) {
+                    setEditUnlocked(true);
+                    setPinModalOpen(false);
+                    setPinInput('');
+                    toast.success('Edición desbloqueada');
+                  } else {
+                    toast.error('PIN incorrecto');
+                  }
+                }}
+                className={`${btn(true)} px-4`}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!focusMode && (
       <Sidebar players={players} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer}
         onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch}
         selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
         onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
         onRequestPersist={() => handleSaveToCloud(true)}
+        editLocked={editLocked}
+        onRequestUnlock={() => setPinModalOpen(true)}
+        captainPlayerId={captainPlayerId}
+        onSetCaptain={handleSetCaptain}
+        coachName={coachName}
+        coachPhotoUrl={coachPhotoUrl}
+        onCoachName={setCoachName}
+        onCoachPhotoUrl={setCoachPhotoUrl}
         savedTacticsPanel={
           <SavedTacticsPanel
             getPayload={getTacticPayload}
@@ -489,53 +786,113 @@ function AppContent() {
             hasUnsaved={hasUnsaved}
           />
         } />
+      )}
 
       {/* CENTER */}
-      <div className="flex-1 flex flex-col items-center p-3 md:p-4 relative overflow-y-auto overflow-x-hidden">
+      <div
+        className={`flex-1 flex flex-col items-center p-3 md:p-4 relative overflow-y-auto min-w-0 ${
+          focusMode ? 'overflow-x-visible' : 'overflow-x-hidden'
+        }`}
+      >
         {/* Header */}
+        {!focusMode && (
         <header className="w-full max-w-[520px] flex justify-between items-center mb-2 md:mb-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className={`md:hidden ${btn()}`}><Menu className="w-5 h-5" /></button>
+            <button type="button" onClick={() => setSidebarOpen(true)} className={`md:hidden ${btn()}`}><Menu className="w-5 h-5" /></button>
             <div>
               <h1 className="text-xl md:text-3xl font-black tracking-tighter drop-shadow-md">
                 PIZARRA<span className="text-emerald-500">TACTICA</span>
               </h1>
               <p className={`text-[10px] md:text-xs font-medium ${mut} hidden sm:block`}>
-                {activeTool === 'draw' ? 'Dibuja flechas' : activeTool === 'opponent' ? 'Toca para colocar rival' : 'Arrastra jugadores'}
+                {editLocked
+                  ? 'Edición bloqueada — PIN en el candado (modo foco y césped siempre disponibles)'
+                  : activeTool === 'draw'
+                  ? 'Dibuja flechas'
+                  : activeTool === 'opponent'
+                    ? 'Toca para colocar rival'
+                    : activeTool === 'laser'
+                      ? 'Láser: se desvanece al soltar (como Excalidraw)'
+                      : activeTool === 'pen'
+                        ? 'Lápiz: trazos que se guardan en la planilla'
+                        : activeTool === 'swap'
+                        ? 'Dos toques en titulares para intercambiar'
+                        : 'Arrastra jugadores'}
               </p>
             </div>
           </div>
           <div className="flex gap-1 md:gap-1.5">
-            <button onClick={toggleTheme} className={btn()} title={isDark ? 'Claro' : 'Oscuro'}>
+            {editLocked ? (
+              <button type="button" onClick={() => setPinModalOpen(true)} className={`${btn()} border-amber-500/50 text-amber-400`} title="Desbloquear edición (PIN)">
+                <Lock className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditUnlocked(false);
+                  toast.message('Edición bloqueada');
+                }}
+                className={`${btn()} text-emerald-400`}
+                title="Bloquear edición"
+              >
+                <Unlock className="w-4 h-4" />
+              </button>
+            )}
+            <button type="button" onClick={() => setFocusMode(true)} className={btn()} title="Modo foco: solo titular en el campo">
+              <ScanEye className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={toggleTheme} className={btn()} title={isDark ? 'Claro' : 'Oscuro'}>
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
             <div className="relative">
-              <button onClick={() => setShowGrassMenu(!showGrassMenu)} className={btn()}><Palette className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setShowGrassMenu(!showGrassMenu)} className={btn()} title="Color del césped"><Palette className="w-4 h-4" /></button>
               {showGrassMenu && (
-                <div className={`absolute right-0 top-11 z-50 p-3 rounded-xl shadow-2xl border ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'}`}>
-                  <p className={`text-[10px] font-bold mb-2 ${mut}`}>Cesped</p>
-                  <div className="flex gap-1.5">
+                <div className={`absolute right-0 top-11 z-50 max-h-[min(70vh,420px)] w-[min(calc(100vw-2rem),280px)] overflow-y-auto rounded-xl border p-3 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'}`}>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${mut}`}>Colores</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {GRASS_COLORS.map(c => (
-                      <button key={c} onClick={() => { setGrassColor(c); setShowGrassMenu(false); }}
-                        className={`w-6 h-6 rounded-full border-2 hover:scale-110 transition-transform ${grassColor === c ? 'border-yellow-400 scale-110' : 'border-white/30'}`}
-                        style={{ backgroundColor: c }} />
+                      <button key={c} type="button" onClick={() => { setGrassColor(c); setShowGrassMenu(false); }}
+                        className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${grassColor === c ? 'border-yellow-400 scale-110' : 'border-white/30'}`}
+                        style={{ backgroundColor: c }} title={c} />
+                    ))}
+                  </div>
+                  <p className={`mt-3 text-[10px] font-bold uppercase tracking-wider ${mut}`}>Corte del césped</p>
+                  <div className="mt-1.5 flex flex-col gap-1">
+                    {GRASS_CUT_OPTIONS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setGrassCut(p.id);
+                          setShowGrassMenu(false);
+                        }}
+                        className={`rounded-lg border px-2.5 py-2 text-left text-[10px] font-bold transition-colors ${
+                          grassCut === p.id
+                            ? 'border-yellow-400 bg-yellow-500/10 text-yellow-500'
+                            : isDark ? 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10' : 'border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
             </div>
             <button onClick={handleDownload} className={btn()} title="Descargar imagen"><Download className="w-4 h-4" /></button>
-            <button onClick={handleSaveToCloud} disabled={saving} 
+            <button type="button" onClick={() => void handleSaveToCloud()} disabled={saving || editLocked}
               className={`${btn()} relative ${hasUnsaved ? 'animate-pulse' : ''}`}
-              title={saving ? 'Guardando...' : hasUnsaved ? 'Guardar cambios' : 'Guardado'}>
+              title={editLocked ? 'Desbloquea para guardar' : saving ? 'Guardando...' : hasUnsaved ? 'Guardar cambios' : 'Guardado'}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : hasUnsaved ? <Save className="w-4 h-4 text-yellow-400" /> : <Cloud className="w-4 h-4 text-emerald-400" />}
             </button>
           </div>
         </header>
+        )}
 
         {/* Formation selector */}
-        <div className="w-full max-w-[520px] mb-2">
-          <button onClick={() => setShowFormations(!showFormations)}
+        {!focusMode && (
+        <div className={`relative w-full max-w-[520px] mb-2 ${editLocked ? 'pointer-events-none opacity-50' : ''}`}>
+          <button type="button" onClick={() => setShowFormations(!showFormations)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm font-bold ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
             <span>Formacion: <span className="text-emerald-500">{currentFormation}</span></span>
             {showFormations ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -576,9 +933,14 @@ function AppContent() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Pitch: herramientas en barra horizontal (móvil) o rail izquierdo (md+) */}
-        <div className="w-full max-w-[520px] relative">
+        {!focusMode ? (
+        <>
+        {/* Cancha centrada (1fr | 520 | 1fr); DT a la derecha sin tapar el campo */}
+        <div className="w-full max-w-[960px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,520px)_minmax(0,1fr)] gap-3 items-start">
+          <div className="hidden lg:block min-w-0" aria-hidden />
+          <div className="w-full max-w-[520px] relative min-w-0 justify-self-center">
           <TacticalToolbar
             variant="mobile"
             btn={btn}
@@ -591,6 +953,9 @@ function AppContent() {
             setArrowColor={setArrowColor}
             setArrows={setArrows}
             setOpponents={setOpponents}
+            laserStrokes={laserStrokes}
+            setLaserStrokes={setLaserStrokes}
+            disabled={pitchToolsLocked}
           />
           <TacticalToolbar
             variant="rail"
@@ -604,6 +969,9 @@ function AppContent() {
             setArrowColor={setArrowColor}
             setArrows={setArrows}
             setOpponents={setOpponents}
+            laserStrokes={laserStrokes}
+            setLaserStrokes={setLaserStrokes}
+            disabled={pitchToolsLocked}
           />
 
           <div className="w-full relative">
@@ -613,8 +981,18 @@ function AppContent() {
               activeTool={activeTool} arrowColor={arrowColor} arrowStyle={arrowStyle} pitchRef={pitchRef}
               opponents={opponents} onAddOpponent={m => setOpponents(p => [...p, m])}
               onMoveOpponent={(id, x, y) => setOpponents(p => p.map(m => m.id === id ? { ...m, x, y } : m))}
-              onRemoveOpponent={id => setOpponents(p => p.filter(m => m.id !== id))} />
+              onRemoveOpponent={id => setOpponents(p => p.filter(m => m.id !== id))}
+              laserStrokes={laserStrokes}
+              onAddLaserStroke={(s) => setLaserStrokes((p) => [...p, s])}
+              onSwapTitularPick={handleSwapTitularPick}
+              swapPendingId={swapPendingId}
+              captainPlayerId={captainPlayerId}
+              editLocked={pitchToolsLocked} />
           </div>
+          </div>
+          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-end gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1">
+            <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="stack" />
+          </aside>
         </div>
 
         {/* Mobile info bar */}
@@ -627,9 +1005,106 @@ function AppContent() {
             ))}
           </div>
         </div>
+        </>
+        ) : (
+        <div className="flex flex-1 flex-col w-full min-h-0 max-w-[min(100%,1040px)] mx-auto px-1 sm:px-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2 w-full px-1 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button type="button" onClick={() => setFocusMode(false)} className={`${btn()} text-[10px] font-black px-2.5 py-1.5 flex items-center gap-1`} title="Volver a la pizarra completa">
+                <X className="w-3.5 h-3.5" /> Salir foco
+              </button>
+              <button type="button" onClick={() => setSidebarOpen(true)} className={`md:hidden ${btn()}`} title="Plantilla">
+                <Menu className="w-4 h-4" />
+              </button>
+            </div>
+            <span className="text-emerald-400 font-black text-sm md:text-lg">{currentFormation}</span>
+            <span className={`text-xs font-bold ${mut}`}>{pitchPlayers.length} titulares</span>
+            {editLocked ? (
+              <button type="button" onClick={() => setPinModalOpen(true)} className={`${btn()} border-amber-500/50 text-amber-400`} title="Desbloquear (PIN)">
+                <Lock className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditUnlocked(false);
+                  toast.message('Edición bloqueada');
+                }}
+                className={`${btn()} text-emerald-400`}
+                title="Bloquear edición"
+              >
+                <Unlock className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-1 min-h-0 w-full justify-center px-1 sm:px-2">
+            <div className="flex min-h-0 w-full max-w-[min(640px,calc(100vw-1rem))] flex-row gap-2 sm:max-w-[min(640px,calc(100vw-1.5rem))] sm:gap-3">
+              <TacticalToolbar
+                variant="dock"
+                btn={btn}
+                isDark={isDark}
+                activeTool={activeTool}
+                setActiveTool={setActiveTool}
+                arrowStyle={arrowStyle}
+                setArrowStyle={setArrowStyle}
+                arrowColor={arrowColor}
+                setArrowColor={setArrowColor}
+                setArrows={setArrows}
+                setOpponents={setOpponents}
+                laserStrokes={laserStrokes}
+                setLaserStrokes={setLaserStrokes}
+                disabled={pitchToolsLocked}
+              />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <TacticalToolbar
+                  variant="mobile"
+                  btn={btn}
+                  isDark={isDark}
+                  activeTool={activeTool}
+                  setActiveTool={setActiveTool}
+                  arrowStyle={arrowStyle}
+                  setArrowStyle={setArrowStyle}
+                  arrowColor={arrowColor}
+                  setArrowColor={setArrowColor}
+                  setArrows={setArrows}
+                  setOpponents={setOpponents}
+                  laserStrokes={laserStrokes}
+                  setLaserStrokes={setLaserStrokes}
+                  disabled={pitchToolsLocked}
+                />
+                <div className="relative min-h-0 w-full min-w-0 flex-1">
+                  <Pitch
+                    players={pitchPlayers}
+                    onPlayerMove={handlePlayerMove}
+                    selectedPlayerId={selectedPlayerId}
+                    onSelectPlayer={setSelectedPlayerId}
+                    arrows={arrows}
+                    onAddArrow={(a) => setArrows((p) => [...p, a])}
+                    activeTool={activeTool}
+                    arrowColor={arrowColor}
+                    arrowStyle={arrowStyle}
+                    pitchRef={pitchRef}
+                    opponents={opponents}
+                    onAddOpponent={(m) => setOpponents((p) => [...p, m])}
+                    onMoveOpponent={(id, x, y) => setOpponents((p) => p.map((m) => (m.id === id ? { ...m, x, y } : m)))}
+                    onRemoveOpponent={(id) => setOpponents((p) => p.filter((m) => m.id !== id))}
+                    laserStrokes={laserStrokes}
+                    onAddLaserStroke={(s) => setLaserStrokes((p) => [...p, s])}
+                    onSwapTitularPick={handleSwapTitularPick}
+                    swapPendingId={swapPendingId}
+                    captainPlayerId={captainPlayerId}
+                    editLocked={pitchToolsLocked}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
       </div>
 
       {/* RIGHT: Legend (desktop) */}
+      {!focusMode && (
       <div className={`hidden lg:flex flex-col justify-center gap-4 px-5 py-8 border-l ${isDark ? 'border-white/10 bg-slate-900/40' : 'border-gray-200 bg-white/60'} backdrop-blur-md min-w-[160px]`}>
         <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${mut}`}>Leyenda</h3>
         {LEGEND.map(({ pos, color, shadow, label }) => (
@@ -656,9 +1131,10 @@ function AppContent() {
         </div>
         <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
           <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${mut}`}>Tacticas</h3>
-          <p className={`text-[10px] ${mut}`}>{arrows.length} flechas &middot; {opponents.length} rivales</p>
+          <p className={`text-[10px] ${mut}`}>{arrows.length} flechas &middot; {opponents.length} rivales &middot; {laserStrokes.length} lápiz</p>
         </div>
       </div>
+      )}
     </div>
   );
 }

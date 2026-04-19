@@ -33,6 +33,13 @@ export interface OpponentMarker {
   y: number;
 }
 
+/** Trazo libre tipo láser en la pizarra. */
+export interface LaserStroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+}
+
 /** Copia nombrada en la nube (lista en panel "Tácticas guardadas"). */
 export interface SavedTacticMeta {
   id: string;
@@ -47,4 +54,7 @@ export interface TacticSnapshot {
   opponents: OpponentMarker[];
   formation: string;
   customFormations: Formation[];
+  laserStrokes?: LaserStroke[];
+  /** Dorsal en campo; debe ser id de un jugador con isOnPitch */
+  captainPlayerId?: string | null;
 }

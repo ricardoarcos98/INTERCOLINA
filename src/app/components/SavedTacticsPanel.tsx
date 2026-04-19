@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Save, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { FolderOpen, Save, Trash2, Loader2, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
 import { SavedTacticMeta, TacticSnapshot } from '../types';
 import { useTheme } from './ThemeContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -28,6 +28,9 @@ export const SavedTacticsPanel: React.FC<Props> = ({
   const [loadingList, setLoadingList] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const muted = isDark ? 'text-slate-400' : 'text-gray-500';
   const card = isDark ? 'bg-slate-800/90 border-white/10' : 'bg-gray-50 border-gray-200';
@@ -112,6 +115,8 @@ export const SavedTacticsPanel: React.FC<Props> = ({
         opponents: data.opponents || [],
         formation: data.formation || '4-3-3',
         customFormations: data.customFormations || [],
+        laserStrokes: data.laserStrokes || [],
+        captainPlayerId: data.captainPlayerId ?? null,
       };
       onApplySnapshot(snap);
       onAfterApply?.(snap);
@@ -120,6 +125,48 @@ export const SavedTacticsPanel: React.FC<Props> = ({
       toast.error('Error de conexión');
     } finally {
       setLoadingId(null);
+    }
+  };
+
+  const startEditRow = (item: SavedTacticMeta) => {
+    setEditingId(item.id);
+    setEditName(item.name);
+  };
+
+  const cancelEditRow = () => {
+    setEditingId(null);
+    setEditName('');
+  };
+
+  const handleUpdateSaved = async (id: string) => {
+    const n = editName.trim();
+    if (!n) {
+      toast.error('Escribe un nombre');
+      return;
+    }
+    setUpdatingId(id);
+    try {
+      const p = getPayload();
+      const res = await fetch(`${API_BASE}/saved-tactic/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${publicAnonKey}`,
+        },
+        body: JSON.stringify({ name: n, ...p }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || `Error al actualizar (${res.status})`);
+        return;
+      }
+      toast.success(`Copia "${n}" actualizada`);
+      cancelEditRow();
+      await refreshList();
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -194,29 +241,76 @@ export const SavedTacticsPanel: React.FC<Props> = ({
                 {list.map((item) => (
                   <li
                     key={item.id}
-                    className={`flex items-center gap-1 px-2 py-2 ${isDark ? 'hover:bg-white/5' : 'hover:bg-white/80'}`}
+                    className={`px-2 py-2 ${isDark ? 'hover:bg-white/5' : 'hover:bg-white/80'}`}
                   >
-                    <button
-                      type="button"
-                      disabled={loadingId === item.id}
-                      onClick={() => void handleLoad(item.id)}
-                      className="flex-1 min-w-0 text-left text-xs font-bold truncate text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-                      title="Cargar en la pizarra"
-                    >
-                      {loadingId === item.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" />
-                      ) : null}
-                      {item.name}
-                      <span className={`block text-[9px] font-normal ${muted} truncate`}>{fmt(item.savedAt)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(item.id, item.name)}
-                      className="p-1.5 rounded-md text-red-400 hover:bg-red-500/10 shrink-0"
-                      title="Eliminar copia"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {editingId === item.id ? (
+                      <div className="flex flex-col gap-2">
+                        <p className={`text-[9px] font-bold uppercase tracking-wide ${muted}`}>
+                          Guarda la pizarra actual en esta copia (carga la copia antes si quieres partir de ella)
+                        </p>
+                        <input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className={`w-full text-xs rounded-md border px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500 ${inputCls}`}
+                          placeholder="Nombre…"
+                        />
+                        <div className="flex gap-1.5 justify-end">
+                          <button
+                            type="button"
+                            onClick={cancelEditRow}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border ${isDark ? 'border-white/15 text-slate-300' : 'border-gray-300 text-gray-600'}`}
+                          >
+                            <X className="w-3 h-3" />
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingId === item.id}
+                            onClick={() => void handleUpdateSaved(item.id)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black disabled:opacity-50"
+                          >
+                            {updatingId === item.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Save className="w-3 h-3" />
+                            )}
+                            Guardar cambios
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={loadingId === item.id}
+                          onClick={() => void handleLoad(item.id)}
+                          className="flex-1 min-w-0 text-left text-xs font-bold truncate text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                          title="Cargar en la pizarra"
+                        >
+                          {loadingId === item.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" />
+                          ) : null}
+                          {item.name}
+                          <span className={`block text-[9px] font-normal ${muted} truncate`}>{fmt(item.savedAt)}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEditRow(item)}
+                          className="p-1.5 rounded-md text-amber-400 hover:bg-amber-500/10 shrink-0"
+                          title="Editar esta copia (nombre y contenido desde la pizarra)"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(item.id, item.name)}
+                          className="p-1.5 rounded-md text-red-400 hover:bg-red-500/10 shrink-0"
+                          title="Eliminar copia"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

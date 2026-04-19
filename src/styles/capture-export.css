@@ -1,0 +1,44 @@
+/*
+ * html-to-image / toPng rasteriza mal blur, sombras largas y ring → manchas rectangulares.
+ * Se activa con [data-exporting] en el nodo raíz del campo (.pitch-capture-root).
+ */
+
+[data-exporting].pitch-capture-root {
+  /* Sombra exterior del rectángulo del campo: a veces “chorrea” en el PNG */
+  box-shadow: none !important;
+}
+
+/* Sombra ovalada bajo el jugador (blur): es la causa más frecuente de bloques de color */
+[data-exporting] .pitch-token-ground {
+  display: none !important;
+}
+
+[data-exporting] .pitch-player-token,
+[data-exporting] .pitch-player-token * {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+[data-exporting] [data-clean-capture] {
+  box-shadow: none !important;
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-width: 0px !important;
+  --tw-drop-shadow: 0 0 #0000 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+/* Quitar escala de “seleccionado” en PNG para evitar recortes raros + halos */
+[data-exporting] .pitch-token-face {
+  transform: scale(1) !important;
+}
+
+[data-exporting] .pitch-laser-svg path {
+  filter: none !important;
+}

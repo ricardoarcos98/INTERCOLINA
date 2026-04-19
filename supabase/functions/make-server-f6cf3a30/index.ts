@@ -104,8 +104,12 @@ app.post("/make-server-f6cf3a30/save-tactic", async (c) => {
     await kv.set("tactic-formation", body.formation || "4-3-3");
     await kv.set("tactic-arrows", body.arrows || []);
     await kv.set("tactic-opponents", body.opponents || []);
+    await kv.set("tactic-lasers", body.laserStrokes || []);
     await kv.set("tactic-customFormations", body.customFormations || []);
     await kv.set("tactic-savedAt", body.savedAt || new Date().toISOString());
+    await kv.set("tactic-coach-photo", body.coachPhotoUrl ?? "");
+    await kv.set("tactic-coach-name", String(body.coachName ?? "").trim() || "D.T.");
+    await kv.set("tactic-captain-id", body.captainPlayerId != null && body.captainPlayerId !== "" ? String(body.captainPlayerId) : "");
 
     // Save each player: key = dorsal number, value = player data
     const keys = players.map((p: any) => `jugador-${p.number}`);
@@ -154,10 +158,12 @@ app.post("/make-server-f6cf3a30/save-tactic", async (c) => {
 app.get("/make-server-f6cf3a30/load-tactic/:id", async (c) => {
   try {
     // Load metadata
-    const [formation, arrows, opponents, customFormations, savedAt, playerNumbers] = await kv.mget([
-      "tactic-formation", "tactic-arrows", "tactic-opponents",
-      "tactic-customFormations", "tactic-savedAt", "tactic-playerNumbers"
-    ]);
+    const [formation, arrows, opponents, lasers, customFormations, savedAt, playerNumbers, coachPhoto, coachName, captainId] =
+      await kv.mget([
+        "tactic-formation", "tactic-arrows", "tactic-opponents", "tactic-lasers",
+        "tactic-customFormations", "tactic-savedAt", "tactic-playerNumbers",
+        "tactic-coach-photo", "tactic-coach-name", "tactic-captain-id",
+      ]);
 
     if (!playerNumbers) return c.json({ error: "Tactic not found" }, 404);
 
@@ -185,8 +191,12 @@ app.get("/make-server-f6cf3a30/load-tactic/:id", async (c) => {
       formation: formation || "4-3-3",
       arrows: arrows || [],
       opponents: opponents || [],
+      laserStrokes: lasers || [],
       customFormations: customFormations || [],
       savedAt,
+      coachPhotoUrl: coachPhoto != null ? String(coachPhoto) : "",
+      coachName: coachName != null ? String(coachName) : "",
+      captainPlayerId: captainId != null && String(captainId).trim() !== "" ? String(captainId) : null,
     });
   } catch (err) {
     console.log(`Error loading tactic: ${err}`);
@@ -238,6 +248,7 @@ app.post("/make-server-f6cf3a30/save-snapshot", async (c) => {
       players: body.players || [],
       arrows: body.arrows || [],
       opponents: body.opponents || [],
+      laserStrokes: body.laserStrokes || [],
       formation: body.formation || "4-3-3",
       customFormations: body.customFormations || [],
     };
@@ -277,6 +288,47 @@ app.get("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
   } catch (err) {
     console.log(`Error load snapshot: ${err}`);
     return c.json({ error: `Error load snapshot: ${err}` }, 500);
+  }
+});
+
+// Actualizar copia existente (misma pizarra + nombre opcional)
+app.put("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const prev = await kv.get(`saved-tactic-${id}`);
+    if (!prev) return c.json({ error: "No encontrada" }, 404);
+
+    const body = await c.req.json();
+    const name = String(body.name ?? prev.name ?? "").trim();
+    if (!name) return c.json({ error: "Falta el nombre" }, 400);
+
+    const savedAt = new Date().toISOString();
+    const snapshot = {
+      id,
+      name,
+      savedAt,
+      players: body.players ?? prev.players ?? [],
+      arrows: body.arrows ?? prev.arrows ?? [],
+      opponents: body.opponents ?? prev.opponents ?? [],
+      laserStrokes: body.laserStrokes ?? prev.laserStrokes ?? [],
+      formation: body.formation ?? prev.formation ?? "4-3-3",
+      customFormations: body.customFormations ?? prev.customFormations ?? [],
+    };
+
+    await kv.set(`saved-tactic-${id}`, snapshot);
+
+    let index: any[] = (await kv.get("saved-tactics-index")) || [];
+    if (!Array.isArray(index)) index = [];
+    const next = index.map((row: any) =>
+      row.id === id ? { id, name, savedAt } : row
+    );
+    await kv.set("saved-tactics-index", next);
+
+    console.log(`Snapshot updated: ${name} (${id})`);
+    return c.json({ id, name, savedAt });
+  } catch (err) {
+    console.log(`Error update snapshot: ${err}`);
+    return c.json({ error: `Error update snapshot: ${err}` }, 500);
   }
 });
 
