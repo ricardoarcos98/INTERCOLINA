@@ -32,3 +32,19 @@ export interface OpponentMarker {
   x: number;
   y: number;
 }
+
+/** Copia nombrada en la nube (lista en panel "Tácticas guardadas"). */
+export interface SavedTacticMeta {
+  id: string;
+  name: string;
+  savedAt: string;
+}
+
+/** Estado completo de una táctica (pizarra + formación). */
+export interface TacticSnapshot {
+  players: Player[];
+  arrows: TacticalArrow[];
+  opponents: OpponentMarker[];
+  formation: string;
+  customFormations: Formation[];
+}

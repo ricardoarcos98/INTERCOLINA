@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
-import { Player, Position, Formation, TacticalArrow, OpponentMarker } from './types';
+import { Player, Position, Formation, TacticalArrow, OpponentMarker, TacticSnapshot } from './types';
 import { Pitch, PitchTool } from './components/Pitch';
 import { Sidebar } from './components/Sidebar';
+import { SavedTacticsPanel } from './components/SavedTacticsPanel';
 import { ThemeProvider, useTheme, GRASS_COLORS } from './components/ThemeContext';
 import { Toaster, toast } from 'sonner';
 import {
@@ -242,6 +243,26 @@ function AppContent() {
 
   const saveLockRef = useRef(false);
 
+  const getTacticPayload = useCallback((): TacticSnapshot => {
+    const s = tacticSnapshot.current;
+    return {
+      players: s.players,
+      arrows: s.arrows,
+      opponents: s.opponents,
+      formation: s.currentFormation,
+      customFormations: s.allFormations.filter((f) => f.isCustom),
+    };
+  }, []);
+
+  const handleApplySnapshot = useCallback((snap: TacticSnapshot) => {
+    setPlayers(snap.players);
+    setArrows(snap.arrows);
+    setOpponents(snap.opponents);
+    setCurrentFormation(snap.formation);
+    setAllFormations([...FORMATIONS, ...snap.customFormations]);
+    setSelectedPlayerId(null);
+  }, []);
+
   // Mark unsaved when data changes (after initial load)
   useEffect(() => {
     if (initialLoadDone.current) {
@@ -279,21 +300,31 @@ function AppContent() {
     loadTactic();
   }, []);
 
-  // Save tactic to Supabase (lee siempre tacticSnapshot para no perder fotos al guardar justo después de subir URL)
-  const handleSaveToCloud = useCallback(async (silent = false) => {
+  // Save tactic to Supabase (lee tacticSnapshot; `override` si acabas de cargar una copia y el ref aún no actualizó)
+  const handleSaveToCloud = useCallback(async (silent = false, override?: TacticSnapshot) => {
     if (saveLockRef.current) return;
     saveLockRef.current = true;
     setSaving(true);
     try {
-      const { players: p, arrows: a, opponents: o, currentFormation: f, allFormations: af } = tacticSnapshot.current;
-      const customFormations = af.filter((fm) => fm.isCustom);
+      const src =
+        override ??
+        (() => {
+          const { players: p, arrows: a, opponents: o, currentFormation: f, allFormations: af } = tacticSnapshot.current;
+          return {
+            players: p,
+            arrows: a,
+            opponents: o,
+            formation: f,
+            customFormations: af.filter((fm) => fm.isCustom),
+          } satisfies TacticSnapshot;
+        })();
       const body = {
         id: TACTIC_KEY,
-        players: p,
-        arrows: a,
-        opponents: o,
-        formation: f,
-        customFormations,
+        players: src.players,
+        arrows: src.arrows,
+        opponents: src.opponents,
+        formation: src.formation,
+        customFormations: src.customFormations,
         savedAt: new Date().toISOString(),
       };
       const res = await fetch(`${API_BASE}/save-tactic`, {
@@ -449,7 +480,15 @@ function AppContent() {
         onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch}
         selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
         onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
-        onRequestPersist={() => handleSaveToCloud(true)} />
+        onRequestPersist={() => handleSaveToCloud(true)}
+        savedTacticsPanel={
+          <SavedTacticsPanel
+            getPayload={getTacticPayload}
+            onApplySnapshot={handleApplySnapshot}
+            onAfterApply={(snap) => void handleSaveToCloud(true, snap)}
+            hasUnsaved={hasUnsaved}
+          />
+        } />
 
       {/* CENTER */}
       <div className="flex-1 flex flex-col items-center p-3 md:p-4 relative overflow-y-auto overflow-x-hidden">

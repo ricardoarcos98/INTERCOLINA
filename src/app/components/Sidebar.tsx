@@ -22,6 +22,8 @@ interface SidebarProps {
   onClose: () => void;
   /** Guarda en Supabase justo después de foto/URL (el autosave va con debounce y se pierde al recargar). */
   onRequestPersist?: () => void;
+  /** Panel opcional arriba (ej. tácticas guardadas). */
+  savedTacticsPanel?: React.ReactNode;
 }
 
 const POSITIONS: Position[] = ['ARQ', 'DFC', 'LI', 'LD', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC'];
@@ -41,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   players, onAddPlayer, onUpdatePlayer, onRemovePlayer, onSendToPitch,
   selectedPlayerId, onSelectPlayer, onSubstitution, isOpen, onClose,
   onRequestPersist,
+  savedTacticsPanel,
 }) => {
   const { isDark } = useTheme();
   const [isAdding, setIsAdding] = useState(false);
@@ -113,6 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const content = (
     <>
+      {savedTacticsPanel}
       <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
         <div>
           <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-emerald-500">Plantilla</h2>

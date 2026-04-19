@@ -194,7 +194,7 @@ app.get("/make-server-f6cf3a30/load-tactic/:id", async (c) => {
   }
 });
 
-// List saved tactics
+// List saved tactics (legacy: prefijo tactic- en KV)
 app.get("/make-server-f6cf3a30/tactics", async (c) => {
   try {
     const tactics = await kv.getByPrefix("tactic-");
@@ -205,6 +205,94 @@ app.get("/make-server-f6cf3a30/tactics", async (c) => {
   } catch (err) {
     console.log(`Error listing tactics: ${err}`);
     return c.json({ error: `Error listing tactics: ${err}` }, 500);
+  }
+});
+
+const MAX_SAVED_SNAPSHOTS = 40;
+
+// Lista de tácticas guardadas (copias con nombre)
+app.get("/make-server-f6cf3a30/saved-tactics", async (c) => {
+  try {
+    const index = await kv.get("saved-tactics-index");
+    const list = Array.isArray(index) ? index : [];
+    return c.json(list);
+  } catch (err) {
+    console.log(`Error listing saved tactics: ${err}`);
+    return c.json({ error: `Error listing saved tactics: ${err}` }, 500);
+  }
+});
+
+// Guardar copia nombrada de la táctica actual
+app.post("/make-server-f6cf3a30/save-snapshot", async (c) => {
+  try {
+    const body = await c.req.json();
+    const name = String(body.name || "").trim();
+    if (!name) return c.json({ error: "Falta el nombre" }, 400);
+
+    const id = crypto.randomUUID();
+    const savedAt = new Date().toISOString();
+    const snapshot = {
+      id,
+      name,
+      savedAt,
+      players: body.players || [],
+      arrows: body.arrows || [],
+      opponents: body.opponents || [],
+      formation: body.formation || "4-3-3",
+      customFormations: body.customFormations || [],
+    };
+
+    await kv.set(`saved-tactic-${id}`, snapshot);
+
+    let index: any[] = (await kv.get("saved-tactics-index")) || [];
+    if (!Array.isArray(index)) index = [];
+    index.unshift({ id, name, savedAt });
+
+    if (index.length > MAX_SAVED_SNAPSHOTS) {
+      const removed = index.slice(MAX_SAVED_SNAPSHOTS);
+      index = index.slice(0, MAX_SAVED_SNAPSHOTS);
+      for (const row of removed) {
+        try {
+          await kv.del(`saved-tactic-${row.id}`);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    await kv.set("saved-tactics-index", index);
+
+    console.log(`Snapshot saved: ${name} (${id})`);
+    return c.json({ id, name, savedAt });
+  } catch (err) {
+    console.log(`Error save snapshot: ${err}`);
+    return c.json({ error: `Error save snapshot: ${err}` }, 500);
+  }
+});
+
+// Cargar una copia completa
+app.get("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const data = await kv.get(`saved-tactic-${id}`);
+    if (!data) return c.json({ error: "No encontrada" }, 404);
+    return c.json(data);
+  } catch (err) {
+    console.log(`Error load snapshot: ${err}`);
+    return c.json({ error: `Error load snapshot: ${err}` }, 500);
+  }
+});
+
+// Eliminar copia
+app.delete("/make-server-f6cf3a30/saved-tactic/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    let index: any[] = (await kv.get("saved-tactics-index")) || [];
+    if (!Array.isArray(index)) index = [];
+    const next = index.filter((row: any) => row.id !== id);
+    await kv.set("saved-tactics-index", next);
+    await kv.del(`saved-tactic-${id}`);
+    return c.json({ ok: true });
+  } catch (err) {
+    console.log(`Error delete snapshot: ${err}`);
+    return c.json({ error: `Error delete snapshot: ${err}` }, 500);
   }
 });
 
