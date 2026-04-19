@@ -20,6 +20,8 @@ interface SidebarProps {
   onSubstitution: (onPitchId: string, benchId: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  /** Guarda en Supabase justo después de foto/URL (el autosave va con debounce y se pierde al recargar). */
+  onRequestPersist?: () => void;
 }
 
 const POSITIONS: Position[] = ['ARQ', 'DFC', 'LI', 'LD', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC'];
@@ -38,6 +40,7 @@ const posColor = (pos: Position) => {
 export const Sidebar: React.FC<SidebarProps> = ({
   players, onAddPlayer, onUpdatePlayer, onRemovePlayer, onSendToPitch,
   selectedPlayerId, onSelectPlayer, onSubstitution, isOpen, onClose,
+  onRequestPersist,
 }) => {
   const { isDark } = useTheme();
   const [isAdding, setIsAdding] = useState(false);
@@ -91,6 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
       onUpdatePlayer(selectedPlayer.id, { photoUrl: data.url });
       toast.success('Foto actualizada!');
+      // Guardar en la nube en el siguiente tick para que React aplique ya el nuevo photoUrl
+      setTimeout(() => onRequestPersist?.(), 0);
     } catch (err) {
       console.error('Upload failed:', err);
       toast.error('Error de conexión al subir foto');
@@ -170,7 +175,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isDark ? 'border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-400 text-yellow-600 hover:bg-yellow-5'} ${uploading ? 'opacity-50' : ''}`}>
                     {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Subiendo...</> : <><Upload className="w-3 h-3" /> Subir foto</>}
                   </button>
-                  <input value={selectedPlayer.photoUrl || ''} onChange={e => onUpdatePlayer(selectedPlayer.id, { photoUrl: e.target.value })} placeholder="...o pega URL" className={`w-full border rounded px-3 py-1 text-[10px] focus:outline-none focus:border-yellow-500 ${inputBg}`} />
+                  <input
+                    value={selectedPlayer.photoUrl || ''}
+                    onChange={(e) => onUpdatePlayer(selectedPlayer.id, { photoUrl: e.target.value })}
+                    onBlur={() => onRequestPersist?.()}
+                    placeholder="...o pega URL"
+                    className={`w-full border rounded px-3 py-1 text-[10px] focus:outline-none focus:border-yellow-500 ${inputBg}`}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">

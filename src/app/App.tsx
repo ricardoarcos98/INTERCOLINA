@@ -231,21 +231,23 @@ function AppContent() {
 
   const pitchPlayers = players.filter(p => p.isOnPitch);
 
+  const tacticSnapshot = useRef({
+    players,
+    arrows,
+    opponents,
+    currentFormation,
+    allFormations,
+  });
+  tacticSnapshot.current = { players, arrows, opponents, currentFormation, allFormations };
+
+  const saveLockRef = useRef(false);
+
   // Mark unsaved when data changes (after initial load)
   useEffect(() => {
     if (initialLoadDone.current) {
       setHasUnsaved(true);
     }
   }, [players, arrows, opponents, currentFormation, allFormations]);
-
-  // Autosave with debounce
-  useEffect(() => {
-    if (!hasUnsaved || !initialLoadDone.current) return;
-    const timer = setTimeout(() => {
-      handleSaveToCloud(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [hasUnsaved, players, arrows, opponents, currentFormation, allFormations]);
 
   // Load tactic from Supabase on mount
   useEffect(() => {
@@ -277,18 +279,20 @@ function AppContent() {
     loadTactic();
   }, []);
 
-  // Save tactic to Supabase
+  // Save tactic to Supabase (lee siempre tacticSnapshot para no perder fotos al guardar justo después de subir URL)
   const handleSaveToCloud = useCallback(async (silent = false) => {
-    if (saving) return;
+    if (saveLockRef.current) return;
+    saveLockRef.current = true;
     setSaving(true);
     try {
-      const customFormations = allFormations.filter(f => f.isCustom);
+      const { players: p, arrows: a, opponents: o, currentFormation: f, allFormations: af } = tacticSnapshot.current;
+      const customFormations = af.filter((fm) => fm.isCustom);
       const body = {
         id: TACTIC_KEY,
-        players,
-        arrows,
-        opponents,
-        formation: currentFormation,
+        players: p,
+        arrows: a,
+        opponents: o,
+        formation: f,
         customFormations,
         savedAt: new Date().toISOString(),
       };
@@ -313,9 +317,19 @@ function AppContent() {
       console.log('Error saving tactic:', err);
       if (!silent) toast.error('Error de conexion');
     } finally {
+      saveLockRef.current = false;
       setSaving(false);
     }
-  }, [players, arrows, opponents, currentFormation, allFormations, saving]);
+  }, []);
+
+  // Autosave con debounce (tras foto/URL ya se fuerza guardado desde Sidebar)
+  useEffect(() => {
+    if (!hasUnsaved || !initialLoadDone.current) return;
+    const timer = setTimeout(() => {
+      handleSaveToCloud(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [hasUnsaved, players, arrows, opponents, currentFormation, allFormations, handleSaveToCloud]);
 
   const handlePlayerMove = (id: string, x: number, y: number) => setPlayers(prev => prev.map(p => p.id === id ? { ...p, pitchX: x, pitchY: y } : p));
 
@@ -434,7 +448,8 @@ function AppContent() {
       <Sidebar players={players} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer}
         onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch}
         selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
-        onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
+        onRequestPersist={() => handleSaveToCloud(true)} />
 
       {/* CENTER */}
       <div className="flex-1 flex flex-col items-center p-3 md:p-4 relative overflow-y-auto overflow-x-hidden">
