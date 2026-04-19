@@ -363,6 +363,117 @@ export async function bakeTokenFacesAsDataUrlForCapture(
 }
 
 /**
+ * Reemplaza temporalmente cada <img> de los tokens por un <canvas> con la foto ya pintada
+ * como círculo. html2canvas nunca falla con <canvas> (ya son píxeles), y así evitamos el
+ * bug de Safari con overflow-hidden + rounded-full + <img>.
+ */
+export async function paintTokenFacesToCanvasForCapture(
+  root: HTMLElement,
+  opts?: { proxyBase?: string },
+): Promise<{ undo: () => void; paintedCount: number }> {
+  const imgs = Array.from(root.querySelectorAll('.pitch-token-face img')) as HTMLImageElement[];
+  const undo: Array<() => void> = [];
+  let paintedCount = 0;
+
+  const fetchAsBlob = async (url: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (blob.size === 0) return null;
+      return blob;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadImage = (src: string): Promise<HTMLImageElement | null> =>
+    new Promise((resolve) => {
+      const im = new Image();
+      im.decoding = 'sync';
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = src;
+    });
+
+  for (const img of imgs) {
+    const face = img.parentElement as HTMLElement | null;
+    const src = img.currentSrc || img.src;
+    if (!face || !src) continue;
+
+    let blob = await fetchAsBlob(src);
+    if (!blob && opts?.proxyBase && /^https?:\/\//i.test(src)) {
+      const proxied = `${opts.proxyBase.replace(/\/$/, '')}/image-proxy?url=${encodeURIComponent(src)}`;
+      if (proxied !== src) blob = await fetchAsBlob(proxied);
+    }
+    if (!blob) continue;
+
+    const imageBlob = await normalizeBlobToImage(blob, src);
+    const dataUrl = await blobToDataUrl(imageBlob);
+    const loaded = await loadImage(dataUrl);
+    if (!loaded) continue;
+
+    const rect = img.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    const scale = Math.max(window.devicePixelRatio || 1, 2);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    canvas.style.display = 'block';
+    canvas.style.pointerEvents = 'none';
+    canvas.className = img.className;
+    canvas.setAttribute('data-baked-token-face', '1');
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+    ctx.scale(scale, scale);
+
+    const iw = loaded.naturalWidth || loaded.width;
+    const ih = loaded.naturalHeight || loaded.height;
+    if (iw > 0 && ih > 0) {
+      const scaleCover = Math.max(w / iw, h / ih);
+      const drawW = iw * scaleCover;
+      const drawH = ih * scaleCover;
+      const dx = (w - drawW) / 2;
+      const dy = 0;
+      ctx.drawImage(loaded, dx, dy, drawW, drawH);
+    }
+
+    const prevImgStyle = {
+      display: img.style.display,
+      visibility: img.style.visibility,
+      opacity: img.style.opacity,
+    };
+    img.style.display = 'none';
+    img.style.visibility = 'hidden';
+    img.style.opacity = '0';
+    face.insertBefore(canvas, img);
+
+    undo.push(() => {
+      if (canvas.parentElement === face) face.removeChild(canvas);
+      img.style.display = prevImgStyle.display;
+      img.style.visibility = prevImgStyle.visibility;
+      img.style.opacity = prevImgStyle.opacity;
+    });
+    paintedCount += 1;
+  }
+
+  let undone = false;
+  return {
+    undo: () => {
+      if (undone) return;
+      undone = true;
+      undo.reverse().forEach((fn) => fn());
+    },
+    paintedCount,
+  };
+}
+
+/**
  * html-to-image rasteriza antes de que las fotos terminen de pintar → caras vacías.
  * Espera load/decode de todos los <img> dentro del nodo de la cancha.
  */

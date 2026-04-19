@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
-  bakeTokenFacesAsDataUrlForCapture,
+  paintTokenFacesToCanvasForCapture,
   preparePitchDomForCapture,
   waitForTokenFaceImages,
 } from '../utils/pitchExportCapture';
@@ -820,21 +820,19 @@ function AppContent() {
           await new Promise<void>((r) => setTimeout(r, 110));
         }
       }
-      const { undo: undoBakedFaces, bakedCount } = await bakeTokenFacesAsDataUrlForCapture(root, { proxyBase: API_BASE });
-      toast.message(`DEBUG export v2: baked ${bakedCount}/${expectedPhotos}`);
-      if (bakedCount < expectedPhotos) {
-        undoBakedFaces();
-        toast.error('No se pudieron preparar todas las fotos para la descarga. Reintenta en 1-2 segundos.');
+      const { undo: undoPaintedFaces, paintedCount } = await paintTokenFacesToCanvasForCapture(root, { proxyBase: API_BASE });
+      if (paintedCount < expectedPhotos) {
+        undoPaintedFaces();
+        toast.error(`No se pudieron preparar todas las fotos (${paintedCount}/${expectedPhotos}). Reintenta.`);
         return null;
       }
       if (expectedPhotos > 0) {
-        // Tras inline/bake, Safari puede tardar un frame extra en reflejar naturalWidth.
-        await waitForTokenFaceImages(root, expectedPhotos, 5000);
+        await waitForTokenFaceImages(root, 0, 1000);
       }
       await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-      await new Promise<void>((r) => setTimeout(r, 200));
+      await new Promise<void>((r) => setTimeout(r, 150));
+      const undoPaint = preparePitchDomForCapture(root);
       try {
-        let fromHtml2Canvas: string | null = null;
         try {
           const canvas = await html2canvas(root, {
             useCORS: true,
@@ -844,55 +842,24 @@ function AppContent() {
             imageTimeout: 20000,
             logging: false,
           });
-          fromHtml2Canvas = canvas.toDataURL('image/png');
-        } catch {
-          fromHtml2Canvas = null;
-        }
-
-        let fromToPng: string | null = null;
-        const undoPaint = preparePitchDomForCapture(root);
-        try {
-          fromToPng = await toPng(root, {
-            cacheBust: true,
-            pixelRatio: 2,
-            skipFonts: true,
-            fetchRequestInit: { mode: 'cors', credentials: 'omit' },
-          });
-        } catch {
-          fromToPng = null;
-        } finally {
-          undoPaint();
-        }
-
-        if (fromHtml2Canvas && fromToPng) {
-          // Heurística: el PNG con más bytes suele incluir mejor las fotos.
-          return fromHtml2Canvas.length >= fromToPng.length ? fromHtml2Canvas : fromToPng;
-        }
-        if (fromHtml2Canvas) return fromHtml2Canvas;
-        if (fromToPng) return fromToPng;
-        // Último salvavidas: reintentos mínimos sin optimizaciones.
-        try {
-          const canvas = await html2canvas(root, {
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: null,
-            scale: 2,
-            imageTimeout: 30000,
-            logging: false,
-          });
           return canvas.toDataURL('image/png');
-        } catch {
+        } catch (err) {
+          console.warn('[export] html2canvas failed, trying toPng', err);
           try {
             return await toPng(root, {
               cacheBust: true,
               pixelRatio: 2,
+              skipFonts: true,
+              fetchRequestInit: { mode: 'cors', credentials: 'omit' },
             });
-          } catch {
+          } catch (err2) {
+            console.warn('[export] toPng also failed', err2);
             return null;
           }
         }
       } finally {
-        undoBakedFaces();
+        undoPaint();
+        undoPaintedFaces();
       }
     } catch (err) {
       console.error(err);
