@@ -9,6 +9,62 @@ export type PitchTool = 'move' | 'draw' | 'opponent' | 'laser' | 'pen' | 'swap';
 
 type EphemeralLaserStroke = { id: string; points: { x: number; y: number }[]; color: string };
 
+/** Lado del arco según dirección del trazo (izq./der. en el plano de la cancha). */
+function defaultCurveBend(fromX: number, fromY: number, toX: number, toY: number): 1 | -1 {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? 1 : -1;
+  }
+  return dy >= 0 ? 1 : -1;
+}
+
+/**
+ * Punto de control cuadrático: bulge en eje vertical si el trazo es más horizontal,
+ * y en eje horizontal si es más vertical (mejor para PNG / raster).
+ */
+function curvedArrowControl(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  bend: 1 | -1,
+): { cx: number; cy: number } {
+  const mx = (fromX + toX) / 2;
+  const my = (fromY + toY) / 2;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const len = Math.hypot(dx, dy) || 1;
+  const mag = 0.3 * bend * len;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return { cx: mx, cy: my + mag };
+  }
+  return { cx: mx + mag, cy: my };
+}
+
+/** Compat: tácticas antiguas sin curveBend (solo inclinación fija tipo “izquierda”). */
+function legacyCurvedControl(fromX: number, fromY: number, toX: number, toY: number): { cx: number; cy: number } {
+  const mx = (fromX + toX) / 2;
+  const my = (fromY + toY) / 2;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  return { cx: mx - dy * 0.3, cy: my + dx * 0.3 };
+}
+
+function curvedArrowPathD(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  curveBend: 1 | -1 | undefined,
+): string {
+  const { cx, cy } =
+    curveBend === undefined
+      ? legacyCurvedControl(fromX, fromY, toX, toY)
+      : curvedArrowControl(fromX, fromY, toX, toY, curveBend);
+  return `M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`;
+}
+
 interface PitchProps {
   players: Player[];
   onPlayerMove: (id: string, x: number, y: number) => void;
@@ -114,12 +170,23 @@ export const Pitch: React.FC<PitchProps> = ({
       const dx = drawEnd.x - drawStart.x;
       const dy = drawEnd.y - drawStart.y;
       if (Math.sqrt(dx * dx + dy * dy) > 3) {
-        onAddArrow({
+        const base = {
           id: Math.random().toString(36).substr(2, 9),
-          fromX: drawStart.x, fromY: drawStart.y,
-          toX: drawEnd.x, toY: drawEnd.y,
-          color: arrowColor, style: arrowStyle,
-        });
+          fromX: drawStart.x,
+          fromY: drawStart.y,
+          toX: drawEnd.x,
+          toY: drawEnd.y,
+          color: arrowColor,
+          style: arrowStyle,
+        } as const;
+        onAddArrow(
+          arrowStyle === 'curved'
+            ? {
+                ...base,
+                curveBend: defaultCurveBend(drawStart.x, drawStart.y, drawEnd.x, drawEnd.y),
+              }
+            : { ...base },
+        );
       }
     }
     setDrawing(false);
@@ -392,13 +459,16 @@ export const Pitch: React.FC<PitchProps> = ({
         </defs>
         {arrows.map(a => {
           if (a.style === 'curved') {
-            const mx = (a.fromX + a.toX) / 2;
-            const my = (a.fromY + a.toY) / 2;
-            const dx = a.toX - a.fromX;
-            const dy = a.toY - a.fromY;
             return (
-              <path key={a.id} d={`M ${a.fromX} ${a.fromY} Q ${mx - dy * 0.3} ${my + dx * 0.3} ${a.toX} ${a.toY}`}
-                fill="none" stroke={a.color} strokeWidth="0.6" markerEnd={`url(#ah-${a.id})`} strokeLinecap="round" />
+              <path
+                key={a.id}
+                d={curvedArrowPathD(a.fromX, a.fromY, a.toX, a.toY, a.curveBend)}
+                fill="none"
+                stroke={a.color}
+                strokeWidth="0.6"
+                markerEnd={`url(#ah-${a.id})`}
+                strokeLinecap="round"
+              />
             );
           }
           return (
@@ -409,8 +479,21 @@ export const Pitch: React.FC<PitchProps> = ({
         })}
         {drawing && drawStart && drawEnd && (
           arrowStyle === 'curved' ? (
-            <path d={`M ${drawStart.x} ${drawStart.y} Q ${(drawStart.x + drawEnd.x) / 2 - (drawEnd.y - drawStart.y) * 0.3} ${(drawStart.y + drawEnd.y) / 2 + (drawEnd.x - drawStart.x) * 0.3} ${drawEnd.x} ${drawEnd.y}`}
-              fill="none" stroke={arrowColor} strokeWidth="0.6" markerEnd="url(#ah-preview)" strokeLinecap="round" opacity={0.7} />
+            <path
+              d={curvedArrowPathD(
+                drawStart.x,
+                drawStart.y,
+                drawEnd.x,
+                drawEnd.y,
+                defaultCurveBend(drawStart.x, drawStart.y, drawEnd.x, drawEnd.y),
+              )}
+              fill="none"
+              stroke={arrowColor}
+              strokeWidth="0.6"
+              markerEnd="url(#ah-preview)"
+              strokeLinecap="round"
+              opacity={0.7}
+            />
           ) : (
             <line x1={drawStart.x} y1={drawStart.y} x2={drawEnd.x} y2={drawEnd.y}
               stroke={arrowColor} strokeWidth="0.6" markerEnd="url(#ah-preview)"

@@ -25,6 +25,8 @@ export interface TacticalArrow {
   toY: number;
   color: string;
   style: 'solid' | 'dashed' | 'curved';
+  /** Curva: lado del arco (+1/-1). Omitido = fórmula antigua (compat. tácticas guardadas). */
+  curveBend?: 1 | -1;
 }
 
 export interface OpponentMarker {
