@@ -13,7 +13,7 @@ import {
   Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { preparePitchDomForCapture } from '../utils/pitchExportCapture';
+import { preparePitchDomForCapture, waitForPitchImages } from '../utils/pitchExportCapture';
 import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
@@ -716,31 +716,40 @@ function AppContent() {
     if (!pitchRef.current) return null;
     const root = pitchRef.current;
     root.setAttribute('data-exporting', 'true');
-    const undoDom = preparePitchDomForCapture(root);
     try {
-      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      return await toPng(root, {
-        cacheBust: true,
-        pixelRatio: 2,
-        skipFonts: true,
-      });
-    } catch {
-      toast.error('Error');
+      await waitForPitchImages(root);
+      const undoDom = preparePitchDomForCapture(root);
+      try {
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise<void>((r) => setTimeout(r, 120));
+        return await toPng(root, {
+          cacheBust: true,
+          pixelRatio: 2,
+          skipFonts: true,
+          fetchRequestInit: { mode: 'cors', credentials: 'omit' },
+        });
+      } finally {
+        undoDom();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo generar la imagen (revisa fotos o conexión).');
       return null;
     } finally {
-      undoDom();
       root.removeAttribute('data-exporting');
     }
   };
 
   const handleDownload = async () => {
+    const t = toast.loading('Generando imagen con fotos…');
     const d = await captureImage();
+    toast.dismiss(t);
     if (!d) return;
     const a = document.createElement('a');
     a.download = `tactica-${currentFormation}.png`;
     a.href = d;
     a.click();
-    toast.success('Descargada!');
+    toast.success('Descargada');
   };
 
   const bg = isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-100 text-gray-900';

@@ -52,3 +52,51 @@ export function preparePitchDomForCapture(root: HTMLElement): () => void {
     revert.reverse().forEach((fn) => fn());
   };
 }
+
+/**
+ * html-to-image rasteriza antes de que las fotos terminen de pintar → caras vacías.
+ * Espera load/decode de todos los <img> dentro del nodo de la cancha.
+ */
+export async function waitForPitchImages(root: HTMLElement, timeoutMs = 15000): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+
+  const one = (img: HTMLImageElement) =>
+    new Promise<void>((resolve) => {
+      if (!img.src || img.src.startsWith('data:')) {
+        resolve();
+        return;
+      }
+      const done = () => {
+        if (typeof img.decode === 'function') {
+          img.decode().then(() => resolve()).catch(() => resolve());
+        } else {
+          resolve();
+        }
+      };
+      if (img.complete && img.naturalHeight > 0) {
+        done();
+        return;
+      }
+      const to = window.setTimeout(resolve, timeoutMs);
+      const clear = () => window.clearTimeout(to);
+      img.addEventListener(
+        'load',
+        () => {
+          clear();
+          done();
+        },
+        { once: true },
+      );
+      img.addEventListener(
+        'error',
+        () => {
+          clear();
+          resolve();
+        },
+        { once: true },
+      );
+    });
+
+  await Promise.all(imgs.map(one));
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+}

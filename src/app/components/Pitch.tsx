@@ -698,7 +698,13 @@ const PlayerToken: React.FC<{
           className={`pitch-token-face w-14 h-14 md:w-[72px] md:h-[72px] rounded-full ${positionBorderColor(player.position, isSelected, swapHighlight)} overflow-hidden transition-all duration-200 bg-slate-800 flex items-center justify-center ${isSelected ? 'scale-110' : ''}`}
         >
           {player.photoUrl ? (
-            <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover object-top pointer-events-none" draggable={false} />
+            <img
+              src={player.photoUrl}
+              alt={player.name}
+              className="w-full h-full object-cover object-top pointer-events-none"
+              draggable={false}
+              crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
+            />
           ) : (
             <div className="w-full h-full bg-gradient-to-b from-slate-700 to-slate-900 flex items-center justify-center">
               <span className="text-white/70 font-black text-base md:text-lg pointer-events-none">{player.number}</span>
