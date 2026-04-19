@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Player, Position } from '../types';
 import { POSITION_LABELS } from '../App';
+import { POSITION_DISPLAY_ORDER, positionBadgeClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
 import { Camera, Trash2, User, UserPlus, ArrowLeftRight, ChevronDown, ChevronUp, LogIn, Star, X, Upload, Loader2, Pencil, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -34,19 +35,6 @@ interface SidebarProps {
   onCoachName: (v: string) => void;
   onCoachPhotoUrl: (v: string) => void;
 }
-
-const POSITIONS: Position[] = ['ARQ', 'DFC', 'LI', 'LD', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC'];
-
-const posColor = (pos: Position) => {
-  switch (pos) {
-    case 'ARQ': return 'bg-orange-500/20 text-orange-400';
-    case 'DFC': case 'LI': case 'LD': return 'bg-blue-500/20 text-blue-400';
-    case 'MCD': case 'MC': case 'MCO': return 'bg-emerald-500/20 text-emerald-400';
-    case 'ED': case 'EI': return 'bg-violet-500/20 text-violet-400';
-    case 'DC': return 'bg-red-500/20 text-red-400';
-    default: return 'bg-gray-500/20 text-gray-400';
-  }
-};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   players, onAddPlayer, onUpdatePlayer, onRemovePlayer, onSendToPitch,
@@ -311,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex gap-2">
                 <input name="number" type="number" placeholder="N°" required className={`w-1/3 border rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 ${inputBg}`} />
                 <select name="position" className={`w-2/3 border rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 ${inputBg}`}>
-                  {POSITIONS.map(pos => <option key={pos} value={pos}>{POSITION_LABELS[pos]}</option>)}
+                  {POSITION_DISPLAY_ORDER.map(pos => <option key={pos} value={pos}>{POSITION_LABELS[pos]}</option>)}
                 </select>
               </div>
               <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded text-sm transition-colors">Agregar al plantel</button>
@@ -381,7 +369,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div>
                 <label className={`text-xs mb-2 block ${mutedText}`}>Posicion</label>
                 <div className={`flex flex-wrap rounded-lg p-1 gap-1 border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-200 border-gray-300'}`}>
-                  {POSITIONS.map(pos => (
+                  {POSITION_DISPLAY_ORDER.map(pos => (
                     <button key={pos} onClick={() => onUpdatePlayer(selectedPlayer.id, { position: pos })}
                       className={`px-2 py-1.5 rounded-md text-[10px] font-bold transition-all ${selectedPlayer.position === pos ? 'bg-yellow-500 text-black shadow-md' : `${mutedText} hover:text-current`}`}>
                       {pos}
@@ -449,7 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex-1 truncate">
                       <div className={`font-bold text-sm truncate ${subMode ? (rec ? 'text-emerald-400' : 'text-amber-300') : selectedPlayerId === p.id ? 'text-yellow-500' : mutedText}`}>{p.name}</div>
                       <div className={`text-xs flex items-center gap-2 ${mutedText}`}>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider ${posColor(p.position)}`}>{POSITION_LABELS[p.position]}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider ${positionBadgeClasses(p.position)}`}>{POSITION_LABELS[p.position]}</span>
                         #{p.number}
                       </div>
                     </div>
@@ -623,7 +611,7 @@ const PlayerRow: React.FC<{
     <div className="flex-1 truncate">
       <div className={`font-bold text-sm truncate ${isSelected ? 'text-yellow-500' : ''}`}>{player.name}</div>
       <div className={`text-xs flex items-center gap-2 ${mutedText}`}>
-        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider ${posColor(player.position)}`}>{POSITION_LABELS[player.position]}</span>
+        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider ${positionBadgeClasses(player.position)}`}>{POSITION_LABELS[player.position]}</span>
         #{player.number}
       </div>
     </div>

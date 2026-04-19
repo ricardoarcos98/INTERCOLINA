@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, useMotionValue } from 'motion/react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Player, TacticalArrow, OpponentMarker, LaserStroke, Position } from '../types';
+import { positionTokenBorderClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
 
 export type PitchTool = 'move' | 'draw' | 'opponent' | 'laser' | 'pen' | 'swap';
@@ -480,18 +482,18 @@ const OpponentToken: React.FC<{
   );
 };
 
+/** Lateral/extremo: flecha en esquina superior derecha del token (izq./der.). */
+const positionSideArrow = (pos: Position): 'left' | 'right' | null => {
+  if (pos === 'LI' || pos === 'EI') return 'left';
+  if (pos === 'LD' || pos === 'ED') return 'right';
+  return null;
+};
+
 /** Solo borde (sin sombra ni ring): html-to-image rasteriza mal box-shadow en PNG. */
 const positionBorderColor = (pos: Position, selected: boolean, swapHi: boolean) => {
   if (swapHi) return 'border-amber-300 border-[3px] md:border-[3.5px]';
   if (selected) return 'border-yellow-400 border-[3px] md:border-[3.5px]';
-  switch (pos) {
-    case 'ARQ': return 'border-orange-400 border-[2.5px] md:border-[3px]';
-    case 'DFC': case 'LI': case 'LD': return 'border-blue-400 border-[2.5px] md:border-[3px]';
-    case 'MCD': case 'MC': case 'MCO': return 'border-emerald-400 border-[2.5px] md:border-[3px]';
-    case 'ED': case 'EI': return 'border-violet-400 border-[2.5px] md:border-[3px]';
-    case 'DC': return 'border-red-400 border-[2.5px] md:border-[3px]';
-    default: return 'border-white/80 border-[2.5px] md:border-[3px]';
-  }
+  return positionTokenBorderClasses(pos);
 };
 
 const PlayerToken: React.FC<{
@@ -522,11 +524,12 @@ const PlayerToken: React.FC<{
   };
 
   const pointerClass = readOnly ? 'pointer-events-none' : laserPassthrough ? 'pointer-events-none' : 'pointer-events-auto';
+  const sideArrow = positionSideArrow(player.position);
 
   return (
     <motion.div
       style={{ x, y, left: `${player.pitchX}%`, top: `${player.pitchY}%`, position: 'absolute' }}
-      className={`pitch-player-token absolute -translate-x-1/2 -translate-y-1/2 z-10 touch-none flex flex-col items-center gap-0.5 group ${readOnly ? '' : canDrag ? 'cursor-grab active:cursor-grabbing' : swapMode ? 'cursor-pointer' : ''} ${pointerClass}`}
+      className={`pitch-player-token absolute -translate-x-1/2 -translate-y-1/2 z-10 touch-none flex flex-col items-center gap-2.5 group ${readOnly ? '' : canDrag ? 'cursor-grab active:cursor-grabbing' : swapMode ? 'cursor-pointer' : ''} ${pointerClass}`}
       drag={canDrag}
       dragConstraints={pitchRef}
       dragElastic={0}
@@ -558,6 +561,19 @@ const PlayerToken: React.FC<{
             C
           </span>
         )}
+        {sideArrow && (
+          <div
+            data-clean-capture
+            className="pointer-events-none absolute -top-1 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/60 bg-black/90 md:-top-1.5 md:-right-2.5 md:h-7 md:w-7"
+            title={sideArrow === 'left' ? 'Banda izquierda' : 'Banda derecha'}
+          >
+            {sideArrow === 'left' ? (
+              <ChevronLeft className="h-3.5 w-3.5 text-white md:h-4 md:w-4" strokeWidth={2.75} aria-hidden />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-white md:h-4 md:w-4" strokeWidth={2.75} aria-hidden />
+            )}
+          </div>
+        )}
         <div
           data-clean-capture
           className={`pitch-token-face w-14 h-14 md:w-[72px] md:h-[72px] rounded-full ${positionBorderColor(player.position, isSelected, swapHighlight)} overflow-hidden transition-all duration-200 bg-slate-800 flex items-center justify-center ${isSelected ? 'scale-110' : ''}`}
@@ -572,14 +588,24 @@ const PlayerToken: React.FC<{
         </div>
         <div
           data-clean-capture
-          className="absolute -bottom-1 -right-2 md:-bottom-1.5 md:-right-2.5 w-6 h-6 md:w-7 md:h-7 rounded-full bg-black/90 border-2 border-white/60 flex items-center justify-center pointer-events-none z-10"
+          className="pointer-events-none absolute -bottom-1 -left-2 z-10 flex h-6 min-h-6 min-w-6 max-w-[2.85rem] items-center justify-center rounded-full border-2 border-white/60 bg-black/90 px-1 md:-bottom-1.5 md:-left-2.5 md:h-7 md:max-w-[3.1rem]"
+          title={`Posición: ${player.position}`}
         >
-          <span className="text-[10px] md:text-xs font-black text-white">{player.number}</span>
+          <span className="whitespace-nowrap text-[8px] font-black leading-none tracking-tighter text-white md:text-[10px]">
+            {player.position}
+          </span>
+        </div>
+        <div
+          data-clean-capture
+          className="pointer-events-none absolute -bottom-1 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/60 bg-black/90 md:-bottom-1.5 md:-right-2.5 md:h-7 md:w-7"
+        >
+          <span className="text-[10px] font-black text-white md:text-xs">{player.number}</span>
         </div>
       </div>
       <div
         data-clean-capture
-        className={`px-2 py-0.5 rounded-md text-[9px] md:text-[11px] font-bold whitespace-nowrap pointer-events-none ${isSelected ? 'bg-yellow-500 text-black' : 'bg-black/75 text-white backdrop-blur-sm'}`}
+        title={player.name}
+        className={`max-w-[min(100vw,200px)] truncate px-2 py-0.5 text-center text-[9px] font-bold leading-tight whitespace-nowrap md:text-[11px] md:leading-tight ${isSelected ? 'rounded-md bg-yellow-500 text-black' : 'rounded-md bg-black/75 text-white backdrop-blur-sm'} pointer-events-none`}
       >
         {player.name}
       </div>

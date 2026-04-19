@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { preparePitchDomForCapture } from '../utils/pitchExportCapture';
+import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
 const TACTIC_KEY = 'tactic-main';
@@ -684,13 +685,12 @@ function AppContent() {
   /** Modo foco y césped siguen disponibles con el candado activo. */
   const pitchToolsLocked = editLocked && !focusMode;
 
-  const LEGEND = [
-    { pos: 'ARQ' as Position, color: 'bg-orange-500', shadow: 'rgba(249,115,22,0.5)' },
-    { pos: 'DFC' as Position, color: 'bg-blue-500', shadow: 'rgba(59,130,246,0.5)', label: 'Defensas' },
-    { pos: 'MC' as Position, color: 'bg-emerald-500', shadow: 'rgba(16,185,129,0.5)', label: 'Mediocampo' },
-    { pos: 'EI' as Position, color: 'bg-violet-500', shadow: 'rgba(139,92,246,0.5)', label: 'Extremos' },
-    { pos: 'DC' as Position, color: 'bg-red-500', shadow: 'rgba(239,68,68,0.5)' },
-  ];
+  const LEGEND = LINE_LEGEND.map(({ line, title, roles }) => ({
+    line,
+    title,
+    roles,
+    ...lineLegendSwatch(line),
+  }));
 
   return (
     <div className={`flex h-screen h-[100dvh] w-full overflow-hidden font-sans transition-colors duration-300 ${bg}`}
@@ -999,9 +999,9 @@ function AppContent() {
         <div className={`mt-3 md:hidden flex items-center justify-between w-full max-w-[520px] px-4 py-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white/80 border-gray-200'}`}>
           <span className="text-emerald-500 font-black text-lg">{currentFormation}</span>
           <span className={`text-xs ${mut}`}>{pitchPlayers.length}/11</span>
-          <div className="flex gap-2">
-            {LEGEND.map(l => (
-              <span key={l.pos} className={`w-3 h-3 rounded-full ${l.color}`} style={{ boxShadow: `0 0 6px ${l.shadow}` }} />
+          <div className="flex max-w-[52%] flex-wrap justify-end gap-1.5" title={LEGEND.map((l) => `${l.title} (${l.roles})`).join(' · ')}>
+            {LEGEND.map((l) => (
+              <span key={l.line} className={`h-3 w-3 shrink-0 rounded-full ${l.color}`} style={{ boxShadow: `0 0 6px ${l.shadow}` }} />
             ))}
           </div>
         </div>
@@ -1107,12 +1107,12 @@ function AppContent() {
       {!focusMode && (
       <div className={`hidden lg:flex flex-col justify-center gap-4 px-5 py-8 border-l ${isDark ? 'border-white/10 bg-slate-900/40' : 'border-gray-200 bg-white/60'} backdrop-blur-md min-w-[160px]`}>
         <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${mut}`}>Leyenda</h3>
-        {LEGEND.map(({ pos, color, shadow, label }) => (
-          <div key={pos} className="flex items-center gap-3">
+        {LEGEND.map(({ line, title, roles, color, shadow }) => (
+          <div key={line} className="flex items-center gap-3">
             <span className={`w-4 h-4 rounded-full ${color} shrink-0`} style={{ boxShadow: `0 0 10px ${shadow}` }} />
             <div>
-              <span className={`text-xs font-bold ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>{pos}</span>
-              <span className={`text-[10px] block ${mut}`}>{label || POSITION_LABELS[pos]}</span>
+              <span className={`text-xs font-bold ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>{title}</span>
+              <span className={`text-[10px] block ${mut}`}>{roles}</span>
             </div>
           </div>
         ))}
