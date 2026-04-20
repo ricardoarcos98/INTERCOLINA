@@ -26,6 +26,8 @@ interface SidebarProps {
   onRequestPersist?: () => void;
   /** Panel opcional arriba (ej. tácticas guardadas). */
   savedTacticsPanel?: React.ReactNode;
+  /** Selector de formaciones (va antes de "Plantilla"). */
+  formationsPanel?: React.ReactNode;
   /** Bloqueo global: cubre plantilla hasta introducir PIN en la pizarra. */
   editLocked: boolean;
   onRequestUnlock: () => void;
@@ -35,6 +37,7 @@ interface SidebarProps {
   coachPhotoUrl: string;
   onCoachName: (v: string) => void;
   onCoachPhotoUrl: (v: string) => void;
+  showDesktop?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedPlayerId, onSelectPlayer, onSubstitution, isOpen, onClose,
   onRequestPersist,
   savedTacticsPanel,
+  formationsPanel,
   editLocked,
   onRequestUnlock,
   captainPlayerId,
@@ -50,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   coachPhotoUrl,
   onCoachName,
   onCoachPhotoUrl,
+  showDesktop = true,
 }) => {
   const { isDark } = useTheme();
   const [isAdding, setIsAdding] = useState(false);
@@ -185,6 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
       {savedTacticsPanel}
+      {formationsPanel}
       <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
         <div>
           <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-emerald-500">Plantilla</h2>
@@ -634,7 +640,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop sidebar */}
-      <div className={`hidden md:flex flex-col h-full w-full max-w-[340px] lg:max-w-[360px] backdrop-blur-md border-r overflow-hidden shadow-2xl transition-colors duration-300 ${sidebarBg}`}>
+      <div className={`${showDesktop ? 'hidden md:flex' : 'hidden'} flex-col h-full w-full max-w-[340px] lg:max-w-[360px] backdrop-blur-md border-r overflow-hidden shadow-2xl transition-colors duration-300 ${sidebarBg}`}>
         {content}
       </div>
 

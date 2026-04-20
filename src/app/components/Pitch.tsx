@@ -401,7 +401,7 @@ export const Pitch: React.FC<PitchProps> = ({
   return (
     <div
       ref={pitchRef}
-      className={`pitch-capture-root relative border-[4px] md:border-[5px] border-white/90 aspect-[2/3] w-full mx-auto overflow-hidden select-none rounded-xl overscroll-contain ${sketchTouchLock ? 'touch-none' : ''} ${cursorClass}`}
+      className={`pitch-capture-root relative border-[4px] md:border-[5px] border-white/90 aspect-[2/3] w-full mx-auto md:max-h-[calc(100dvh-9rem)] lg:max-h-[calc(100dvh-8rem)] overflow-hidden select-none rounded-xl overscroll-contain ${sketchTouchLock ? 'touch-none' : ''} ${cursorClass}`}
       style={{
         backgroundColor: grassColor,
         boxShadow: '0 0 60px rgba(0,0,0,0.5), inset 0 0 80px rgba(0,0,0,0.15)',

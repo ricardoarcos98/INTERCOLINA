@@ -11,7 +11,7 @@ import { Toaster, toast } from 'sonner';
 import {
   Sun, Moon, Palette, Download, Pencil, PenLine, Trash2, Minus, Spline, CornerDownRight,
   Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, Cloud, Loader2,
-  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock,
+  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
@@ -281,6 +281,8 @@ function AppContent() {
   const [currentFormation, setCurrentFormation] = useState('4-3-3');
   const [showGrassMenu, setShowGrassMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [leftBandVisible, setLeftBandVisible] = useState(true);
+  const [rightBandVisible, setRightBandVisible] = useState(true);
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
@@ -911,6 +913,30 @@ function AppContent() {
         backgroundSize: 'cover', backgroundPosition: 'center',
       } : {}}>
       <Toaster position="top-center" theme={isDark ? 'dark' : 'light'} />
+      {!focusMode && (
+        <>
+          {!leftBandVisible && (
+            <button
+              type="button"
+              onClick={() => setLeftBandVisible(true)}
+              className={`hidden lg:flex absolute left-3 top-3 z-30 ${btn()} text-emerald-400`}
+              title="Mostrar banda izquierda"
+              aria-pressed={false}
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setRightBandVisible((v) => !v)}
+            className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} ${rightBandVisible ? '' : 'text-emerald-400'}`}
+            title={rightBandVisible ? 'Ocultar banda derecha' : 'Mostrar banda derecha'}
+            aria-pressed={!rightBandVisible}
+          >
+            {rightBandVisible ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+          </button>
+        </>
+      )}
 
       {pinModalOpen && (
         <div
@@ -981,6 +1007,7 @@ function AppContent() {
         onRemovePlayer={handleRemoveFromPitch} onSendToPitch={handleSendToPitch} onMarkSentOff={handleMarkSentOff}
         selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
         onSubstitution={handleSubstitution} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
+        showDesktop={leftBandVisible}
         onRequestPersist={() => handleSaveToCloud(true)}
         editLocked={editLocked}
         onRequestUnlock={() => setPinModalOpen(true)}
@@ -996,13 +1023,109 @@ function AppContent() {
             onApplySnapshot={handleApplySnapshot}
             onAfterApply={(snap) => void handleSaveToCloud(true, snap)}
             hasUnsaved={hasUnsaved}
+            headerAction={
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLeftBandVisible(false);
+                }}
+                className={`hidden lg:inline-flex ${btn()} p-1.5`}
+                title="Ocultar banda izquierda"
+                aria-label="Ocultar banda izquierda"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+            }
           />
+        }
+        formationsPanel={
+          <div className={`border-b shrink-0 ${isDark ? 'border-white/10 bg-slate-900/40' : 'border-gray-200 bg-gray-50/80'}`}>
+            <button
+              type="button"
+              onClick={() => setShowFormations((v) => !v)}
+              className={`w-full flex items-center justify-between px-4 py-2.5 text-left ${mut} hover:opacity-90`}
+            >
+              <span className="flex items-center gap-2 font-black text-xs uppercase tracking-wider text-emerald-500">
+                <Sparkles className="w-4 h-4" />
+                Formación: <span className="text-emerald-400">{currentFormation}</span>
+              </span>
+              {showFormations ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showFormations && (
+              <div className={`px-3 pb-3 space-y-2 ${editLocked ? 'pointer-events-none opacity-50' : ''}`}>
+                <div className={`p-2 rounded-lg border ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-white'}`}>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {allFormations.map((f, idx) => (
+                      <div key={`${f.name}-${idx}`} className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyFormation(f.name)}
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all border ${
+                            currentFormation === f.name
+                              ? 'bg-emerald-500 text-white border-emerald-400'
+                              : isDark ? 'bg-white/10 text-slate-300 border-white/10 hover:bg-white/20' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {f.name}
+                        </button>
+                        {f.isCustom && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFormation(f.name)}
+                            className="text-red-400 hover:text-red-300 p-0.5"
+                            title="Eliminar"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {!showCreateFormation ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateFormation(true)}
+                      className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border w-full justify-center ${isDark ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'}`}
+                    >
+                      <Plus className="w-3 h-3" /> Crear personalizada
+                    </button>
+                  ) : (
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        placeholder="Mi 4-3-3"
+                        className={`flex-1 min-w-0 px-2 py-1.5 rounded-md text-[10px] border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-gray-50 border-gray-300'} focus:outline-none focus:border-emerald-500`}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveCustomFormation}
+                        className="shrink-0 px-2 py-1.5 bg-emerald-500 text-white text-[10px] font-black rounded-md hover:bg-emerald-600"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateFormation(false)}
+                        className={`shrink-0 p-1 ${mut}`}
+                        title="Cancelar"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         } />
       )}
 
       {/* CENTER */}
       <div
-        className={`flex-1 flex flex-col items-center p-3 md:p-4 relative min-w-0 ${
+        className={`flex-1 flex flex-col items-center p-2 sm:p-3 md:p-4 relative min-w-0 ${
           sketchLocksCenterScroll
             ? 'max-md:overflow-y-hidden max-md:touch-none max-md:overscroll-y-contain md:overflow-y-auto'
             : 'overflow-y-auto'
@@ -1010,9 +1133,16 @@ function AppContent() {
       >
         {/* Header */}
         {!focusMode && (
-        <header className="w-full max-w-[520px] flex justify-between items-center mb-2 md:mb-3">
+        <header className="w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] flex justify-between items-center mb-2 md:mb-3">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setSidebarOpen(true)} className={`md:hidden ${btn()}`}><Menu className="w-5 h-5" /></button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className={`md:hidden ${btn()}`}
+              title="Plantilla"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <div>
               <h1 className="text-xl md:text-3xl font-black tracking-tighter drop-shadow-md">
                 PIZARRA<span className="text-emerald-500">TACTICA</span>
@@ -1110,58 +1240,12 @@ function AppContent() {
         </header>
         )}
 
-        {/* Formation selector */}
-        {!focusMode && (
-        <div className={`relative w-full max-w-[520px] mb-2 ${editLocked ? 'pointer-events-none opacity-50' : ''}`}>
-          <button type="button" onClick={() => setShowFormations(!showFormations)}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm font-bold ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
-            <span>Formacion: <span className="text-emerald-500">{currentFormation}</span></span>
-            {showFormations ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          {showFormations && (
-            <div className={`mt-1 p-3 rounded-xl border max-h-[200px] overflow-y-auto ${isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white border-gray-200'}`}>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {allFormations.map((f, idx) => (
-                  <div key={`${f.name}-${idx}`} className="flex items-center gap-0.5">
-                    <button onClick={() => handleApplyFormation(f.name)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all border ${
-                        currentFormation === f.name
-                          ? 'bg-emerald-500 text-white border-emerald-400'
-                          : isDark ? 'bg-white/10 text-slate-300 border-white/10 hover:bg-white/20' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-emerald-50'
-                      }`}>
-                      {f.name}
-                    </button>
-                    {f.isCustom && (
-                      <button onClick={() => handleDeleteFormation(f.name)} className="text-red-400 hover:text-red-300 p-0.5"><X className="w-3 h-3" /></button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {/* Create custom */}
-              {!showCreateFormation ? (
-                <button onClick={() => setShowCreateFormation(true)}
-                  className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border w-full justify-center ${isDark ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'}`}>
-                  <Plus className="w-3.5 h-3.5" /> Crear formacion personalizada
-                </button>
-              ) : (
-                <div className="flex gap-2 items-center">
-                  <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Nombre (ej: Mi 4-3-3)"
-                    className={`flex-1 px-3 py-2 rounded-lg text-xs border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-gray-50 border-gray-300'} focus:outline-none focus:border-emerald-500`} />
-                  <button onClick={handleSaveCustomFormation} className="px-3 py-2 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600">Guardar</button>
-                  <button onClick={() => setShowCreateFormation(false)} className={`p-2 ${mut}`}><X className="w-4 h-4" /></button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
         {!focusMode ? (
         <>
         {/* Cancha centrada (1fr | 520 | 1fr); DT a la derecha sin tapar el campo */}
-        <div className="w-full max-w-[960px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,520px)_minmax(0,1fr)] gap-3 items-start">
+        <div className="w-full max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,520px)_minmax(0,1fr)] xl:grid-cols-[1fr_minmax(0,640px)_minmax(0,1fr)] 2xl:grid-cols-[1fr_minmax(0,760px)_minmax(0,1fr)] gap-3 items-start">
           <div className="hidden lg:block min-w-0" aria-hidden />
-          <div className="w-full max-w-[520px] relative min-w-0 justify-self-center">
+          <div className="w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] relative min-w-0 justify-self-center">
           <TacticalToolbar
             variant="mobile"
             btn={btn}
@@ -1218,7 +1302,7 @@ function AppContent() {
         </div>
 
         {/* Mobile info bar */}
-        <div className={`mt-3 md:hidden flex items-center justify-between w-full max-w-[520px] px-4 py-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white/80 border-gray-200'}`}>
+        <div className={`mt-3 md:hidden flex items-center justify-between w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] px-4 py-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white/80 border-gray-200'}`}>
           <span className="text-emerald-500 font-black text-lg">{currentFormation}</span>
           <span className={`text-xs ${mut}`}>{pitchPlayers.length}/{maxPlayersOnPitch}</span>
           <div className="flex max-w-[52%] flex-wrap justify-end gap-1.5" title={LEGEND.map((l) => `${l.title} (${l.roles})`).join(' · ')}>
@@ -1235,7 +1319,12 @@ function AppContent() {
               <button type="button" onClick={() => setFocusMode(false)} className={`${btn()} text-[10px] font-black px-2.5 py-1.5 flex items-center gap-1`} title="Volver a la pizarra completa">
                 <X className="w-3.5 h-3.5" /> Salir foco
               </button>
-              <button type="button" onClick={() => setSidebarOpen(true)} className={`md:hidden ${btn()}`} title="Plantilla">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className={`md:hidden ${btn()}`}
+                title="Plantilla"
+              >
                 <Menu className="w-4 h-4" />
               </button>
             </div>
@@ -1260,7 +1349,7 @@ function AppContent() {
             )}
           </div>
           <div className="flex flex-1 min-h-0 w-full justify-center px-1 sm:px-2">
-            <div className="flex min-h-0 w-full max-w-[min(640px,calc(100vw-1rem))] flex-row gap-2 sm:max-w-[min(640px,calc(100vw-1.5rem))] sm:gap-3">
+            <div className="flex min-h-0 w-full max-w-[min(720px,calc(100vw-1rem))] flex-row gap-2 sm:max-w-[min(760px,calc(100vw-1.5rem))] xl:max-w-[min(900px,calc(100vw-2rem))] 2xl:max-w-[min(1040px,calc(100vw-2rem))] sm:gap-3">
               <TacticalToolbar
                 variant="dock"
                 btn={btn}
@@ -1327,7 +1416,7 @@ function AppContent() {
       </div>
 
       {/* RIGHT: Legend (desktop) */}
-      {!focusMode && (
+      {!focusMode && rightBandVisible && (
       <div className={`hidden lg:flex flex-col justify-center gap-4 px-5 py-8 border-l ${isDark ? 'border-white/10 bg-slate-900/40' : 'border-gray-200 bg-white/60'} backdrop-blur-md min-w-[160px]`}>
         <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${mut}`}>Leyenda</h3>
         {LEGEND.map(({ line, title, roles, color, shadow }) => (

@@ -22,6 +22,7 @@ type Props = {
   /** Tras cargar una copia: guardar en la táctica principal con estos datos. */
   onAfterApply?: (snap: TacticSnapshot) => void;
   hasUnsaved: boolean;
+  headerAction?: React.ReactNode;
 };
 
 export const SavedTacticsPanel: React.FC<Props> = ({
@@ -29,6 +30,7 @@ export const SavedTacticsPanel: React.FC<Props> = ({
   onApplySnapshot,
   onAfterApply,
   hasUnsaved,
+  headerAction,
 }) => {
   const { isDark } = useTheme();
   const [open, setOpen] = useState(true);
@@ -231,7 +233,10 @@ export const SavedTacticsPanel: React.FC<Props> = ({
           <FolderOpen className="w-4 h-4" />
           Tácticas guardadas
         </span>
-        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        <span className="flex items-center gap-1.5">
+          {headerAction}
+          {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </span>
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-2">
