@@ -281,8 +281,20 @@ function AppContent() {
   const [currentFormation, setCurrentFormation] = useState('4-3-3');
   const [showGrassMenu, setShowGrassMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [leftBandVisible, setLeftBandVisible] = useState(true);
-  const [rightBandVisible, setRightBandVisible] = useState(true);
+  const [leftBandVisible, setLeftBandVisible] = useState(() => {
+    try {
+      return sessionStorage.getItem(EDIT_UNLOCK_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [rightBandVisible, setRightBandVisible] = useState(() => {
+    try {
+      return sessionStorage.getItem(EDIT_UNLOCK_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
@@ -467,6 +479,17 @@ function AppContent() {
   useEffect(() => {
     if (focusMode) setSidebarOpen(false);
   }, [focusMode]);
+
+  // Lateral bands: hidden by default while locked, shown when unlocked.
+  useEffect(() => {
+    if (editUnlocked) {
+      setLeftBandVisible(true);
+      setRightBandVisible(true);
+      return;
+    }
+    setLeftBandVisible(false);
+    setRightBandVisible(false);
+  }, [editUnlocked]);
 
   useEffect(() => {
     try {
@@ -919,8 +942,9 @@ function AppContent() {
             <button
               type="button"
               onClick={() => setLeftBandVisible(true)}
-              className={`hidden lg:flex absolute left-3 top-3 z-30 ${btn()} text-emerald-400`}
-              title="Mostrar banda izquierda"
+              disabled={editLocked}
+              className={`hidden lg:flex absolute left-3 top-3 z-30 ${btn()} text-emerald-400 ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={editLocked ? 'Desbloquea para usar laterales' : 'Mostrar banda izquierda'}
               aria-pressed={false}
             >
               <ChevronsRight className="w-4 h-4" />
@@ -929,8 +953,9 @@ function AppContent() {
           <button
             type="button"
             onClick={() => setRightBandVisible((v) => !v)}
-            className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} ${rightBandVisible ? '' : 'text-emerald-400'}`}
-            title={rightBandVisible ? 'Ocultar banda derecha' : 'Mostrar banda derecha'}
+            disabled={editLocked}
+            className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} ${rightBandVisible ? '' : 'text-emerald-400'} ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+            title={editLocked ? 'Desbloquea para usar laterales' : rightBandVisible ? 'Ocultar banda derecha' : 'Mostrar banda derecha'}
             aria-pressed={!rightBandVisible}
           >
             {rightBandVisible ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
@@ -1031,8 +1056,9 @@ function AppContent() {
                   e.stopPropagation();
                   setLeftBandVisible(false);
                 }}
-                className={`hidden lg:inline-flex ${btn()} p-1.5`}
-                title="Ocultar banda izquierda"
+                disabled={editLocked}
+                className={`hidden lg:inline-flex ${btn()} p-1.5 ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                title={editLocked ? 'Desbloquea para usar laterales' : 'Ocultar banda izquierda'}
                 aria-label="Ocultar banda izquierda"
               >
                 <ChevronsLeft className="w-3.5 h-3.5" />
