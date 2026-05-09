@@ -122,7 +122,16 @@
   routes.post("/save-tactic", async (c) => {
     try {
       const body = await c.req.json();
-      const players = body.players || [];
+      const rawPlayers = Array.isArray(body.players) ? body.players : [];
+
+      // Dorsales duplicados en el mismo POST rompen kv.mset (mismo key `jugador-N` dos veces en un upsert).
+      const byNumber = new Map<number, any>();
+      for (const p of rawPlayers) {
+        const n = Number((p as any)?.number);
+        if (!Number.isFinite(n)) continue;
+        byNumber.set(n, p);
+      }
+      const players = [...byNumber.values()];
 
       // Save tactic metadata as separate keys
       await kv.set("tactic-formation", body.formation || "4-3-3");
@@ -136,11 +145,11 @@
       await kv.set("tactic-captain-id", body.captainPlayerId != null && body.captainPlayerId !== "" ? String(body.captainPlayerId) : "");
 
       // Save each player: key = dorsal number, value = player data
-      const keys = players.map((p: any) => `jugador-${p.number}`);
+      const keys = players.map((p: any) => `jugador-${Number(p.number)}`);
       const values = players.map((p: any) => ({
         id: p.id,
         name: p.name,
-        number: p.number,
+        number: Number(p.number),
         foto: p.photoUrl || "",
         position: p.position,
         pitchX: p.pitchX,

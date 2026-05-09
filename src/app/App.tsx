@@ -665,9 +665,24 @@ function AppContent() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const err = await res.text();
-        console.log('Error saving tactic:', err);
-        if (!silent) toast.error('Error al guardar');
+        const raw = await res.text();
+        let detail = raw.slice(0, 160);
+        try {
+          const j = JSON.parse(raw) as { error?: string };
+          if (typeof j.error === 'string' && j.error) detail = j.error.slice(0, 200);
+        } catch {
+          /* keep raw */
+        }
+        console.warn('Error saving tactic:', res.status, detail);
+        if (!silent) {
+          toast.error(
+            res.status === 413
+              ? 'Datos demasiado grandes para guardar (reduce trazos lápiz o fotos).'
+              : res.status === 401 || res.status === 403
+                ? 'Sin permiso para guardar (revisa la app).'
+                : `Error al guardar (${res.status})${detail ? `: ${detail}` : ''}`,
+          );
+        }
         return;
       }
       setLastSaved(new Date());

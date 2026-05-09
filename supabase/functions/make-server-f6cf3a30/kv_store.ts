@@ -50,8 +50,12 @@ export const del = async (key: string): Promise<void> => {
 
 // Sets multiple key-value pairs in the database.
 export const mset = async (keys: string[], values: any[]): Promise<void> => {
-  const supabase = client()
-  const { error } = await supabase.from("kv_store_e725a348").upsert(keys.map((k, i) => ({ key: k, value: values[i] })));
+  const supabase = client();
+  // PostgREST upsert falla si la misma `key` aparece dos veces en el mismo batch.
+  const merged = new Map<string, any>();
+  for (let i = 0; i < keys.length; i++) merged.set(keys[i], values[i]);
+  const rows = [...merged.entries()].map(([key, value]) => ({ key, value }));
+  const { error } = await supabase.from("kv_store_e725a348").upsert(rows);
   if (error) {
     throw new Error(error.message);
   }
