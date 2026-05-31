@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
       )}
-      {savedTacticsPanel}
+      {savedTacticsPanel ? <div className="relative z-[30]">{savedTacticsPanel}</div> : null}
       {formationsPanel}
       <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
         <div>
