@@ -133,8 +133,11 @@ type BenchPreviewProps = {
   isDark: boolean;
   mutedClass: string;
   selectedPlayerId: string | null;
+  substitutionTargetId: string | null;
+  substitutionTargetName?: string;
   onSelectPlayer: (id: string) => void;
   onSendToPitch: (id: string) => void;
+  onSubstitution: (onPitchId: string, benchId: string) => void;
   canSendToPitch: boolean;
   editLocked: boolean;
   compact?: boolean;
@@ -145,8 +148,11 @@ function BenchPreview({
   isDark,
   mutedClass,
   selectedPlayerId,
+  substitutionTargetId,
+  substitutionTargetName,
   onSelectPlayer,
   onSendToPitch,
+  onSubstitution,
   canSendToPitch,
   editLocked,
   compact = false,
@@ -160,9 +166,16 @@ function BenchPreview({
     <section className={`w-full rounded-xl border p-3 backdrop-blur-md ${panel}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className={`text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Suplentes</h3>
-        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">
-          {players.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {!canSendToPitch && substitutionTargetName && (
+            <span className="max-w-[120px] truncate rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-400">
+              Sale {substitutionTargetName}
+            </span>
+          )}
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">
+            {players.length}
+          </span>
+        </div>
       </div>
       {players.length === 0 ? (
         <p className={`text-[10px] ${mutedClass}`}>Banco vacío</p>
@@ -170,6 +183,15 @@ function BenchPreview({
         <div className={compact ? 'flex gap-2 overflow-x-auto pb-1' : 'grid gap-1.5'}>
           {visible.map((p) => {
             const selected = selectedPlayerId === p.id;
+            const canSubstitute = !canSendToPitch && !!substitutionTargetId;
+            const canUseBenchPlayer = !editLocked && (canSendToPitch || canSubstitute);
+            const actionTitle = editLocked
+              ? 'Desbloquea para cambiar suplentes'
+              : canSendToPitch
+                ? 'Enviar al campo'
+                : canSubstitute
+                  ? `Entra por ${substitutionTargetName || 'titular seleccionado'}`
+                  : 'Selecciona un titular en la cancha para hacer el cambio';
             return (
               <div
                 key={p.id}
@@ -193,14 +215,20 @@ function BenchPreview({
                 </button>
                 <button
                   type="button"
-                  disabled={!canSendToPitch || editLocked}
-                  onClick={() => onSendToPitch(p.id)}
+                  disabled={!canUseBenchPlayer}
+                  onClick={() => {
+                    if (canSendToPitch) {
+                      onSendToPitch(p.id);
+                      return;
+                    }
+                    if (substitutionTargetId) onSubstitution(substitutionTargetId, p.id);
+                  }}
                   className={`shrink-0 rounded-md p-1.5 text-emerald-400 transition-colors ${
-                    !canSendToPitch || editLocked ? 'cursor-not-allowed opacity-35' : 'bg-emerald-500/10 hover:bg-emerald-500/25'
+                    !canUseBenchPlayer ? 'cursor-not-allowed opacity-35' : 'bg-emerald-500/10 hover:bg-emerald-500/25'
                   }`}
-                  title={editLocked ? 'Desbloquea para enviar al campo' : canSendToPitch ? 'Enviar al campo' : 'Ya no hay cupo en cancha'}
+                  title={actionTitle}
                 >
-                  <LogIn className="h-3.5 w-3.5" />
+                  {canSendToPitch ? <LogIn className="h-3.5 w-3.5" /> : <ArrowLeftRight className="h-3.5 w-3.5" />}
                 </button>
               </div>
             );
@@ -376,13 +404,6 @@ function AppContent() {
       return false;
     }
   });
-  const [rightBandVisible, setRightBandVisible] = useState(() => {
-    try {
-      return sessionStorage.getItem(EDIT_UNLOCK_SESSION_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
@@ -426,6 +447,7 @@ function AppContent() {
   const maxPlayersOnPitch = Math.max(0, 11 - sentOffCount);
   const pitchPlayers = players.filter((p) => p.isOnPitch);
   const benchPlayers = players.filter((p) => !p.isOnPitch && !p.isSentOff);
+  const selectedPitchPlayer = selectedPlayerId ? pitchPlayers.find((p) => p.id === selectedPlayerId) ?? null : null;
   const canSendBenchToPitch = pitchPlayers.length < maxPlayersOnPitch;
   const expectedPitchPhotos = pitchPlayers.filter((p) => !!p.photoUrl).length;
   const pitchPhotosSignature = pitchPlayers
@@ -570,15 +592,9 @@ function AppContent() {
     if (focusMode) setSidebarOpen(false);
   }, [focusMode]);
 
-  // Lateral bands: hidden by default while locked, shown when unlocked.
+  // Lateral roster: hidden by default while locked, shown when unlocked.
   useEffect(() => {
-    if (editUnlocked) {
-      setLeftBandVisible(true);
-      setRightBandVisible(true);
-      return;
-    }
-    setLeftBandVisible(false);
-    setRightBandVisible(false);
+    setLeftBandVisible(editUnlocked);
   }, [editUnlocked]);
 
   useEffect(() => {
@@ -1055,16 +1071,6 @@ function AppContent() {
               <ChevronsRight className="w-4 h-4" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setRightBandVisible((v) => !v)}
-            disabled={editLocked}
-            className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} ${rightBandVisible ? '' : 'text-emerald-400'} ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
-            title={editLocked ? 'Desbloquea para usar laterales' : rightBandVisible ? 'Ocultar banda derecha' : 'Mostrar banda derecha'}
-            aria-pressed={!rightBandVisible}
-          >
-            {rightBandVisible ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
-          </button>
         </>
       )}
 
@@ -1435,8 +1441,11 @@ function AppContent() {
                 isDark={isDark}
                 mutedClass={mut}
                 selectedPlayerId={selectedPlayerId}
+                substitutionTargetId={selectedPitchPlayer?.id ?? null}
+                substitutionTargetName={selectedPitchPlayer?.name}
                 onSelectPlayer={setSelectedPlayerId}
                 onSendToPitch={handleSendToPitch}
+                onSubstitution={handleSubstitution}
                 canSendToPitch={canSendBenchToPitch}
                 editLocked={editLocked}
               />
@@ -1460,8 +1469,11 @@ function AppContent() {
             isDark={isDark}
             mutedClass={mut}
             selectedPlayerId={selectedPlayerId}
+            substitutionTargetId={selectedPitchPlayer?.id ?? null}
+            substitutionTargetName={selectedPitchPlayer?.name}
             onSelectPlayer={setSelectedPlayerId}
             onSendToPitch={handleSendToPitch}
+            onSubstitution={handleSubstitution}
             canSendToPitch={canSendBenchToPitch}
             editLocked={editLocked}
             compact
@@ -1571,38 +1583,6 @@ function AppContent() {
         )}
       </div>
 
-      {/* RIGHT: Legend (desktop) */}
-      {!focusMode && rightBandVisible && (
-      <div className={`hidden lg:flex flex-col justify-center gap-4 px-5 py-8 border-l ${isDark ? 'border-white/10 bg-slate-900/40' : 'border-gray-200 bg-white/60'} backdrop-blur-md min-w-[160px]`}>
-        <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${mut}`}>Leyenda</h3>
-        {LEGEND.map(({ line, title, roles, color, shadow }) => (
-          <div key={line} className="flex items-center gap-3">
-            <span className={`w-4 h-4 rounded-full ${color} shrink-0`} style={{ boxShadow: `0 0 10px ${shadow}` }} />
-            <div>
-              <span className={`text-xs font-bold ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>{title}</span>
-              <span className={`text-[10px] block ${mut}`}>{roles}</span>
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center gap-3 mt-2">
-          <span className="w-4 h-4 rounded-full bg-red-600 border-2 border-red-300 shrink-0" />
-          <div>
-            <span className={`text-xs font-bold ${isDark ? 'text-slate-200' : 'text-gray-700'}`}>Rival</span>
-            <span className={`text-[10px] block ${mut}`}>Doble-clic elimina</span>
-          </div>
-        </div>
-
-        <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${mut}`}>Formacion</h3>
-          <span className="text-2xl font-black text-emerald-500">{currentFormation}</span>
-          <p className={`text-[10px] mt-1 ${mut}`}>{pitchPlayers.length}/{maxPlayersOnPitch} en cancha{sentOffCount > 0 ? ` · ${sentOffCount} exp.` : ''}</p>
-        </div>
-        <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${mut}`}>Tacticas</h3>
-          <p className={`text-[10px] ${mut}`}>{arrows.length} flechas &middot; {opponents.length} rivales &middot; {laserStrokes.length} lápiz</p>
-        </div>
-      </div>
-      )}
     </div>
   );
 }
