@@ -169,26 +169,33 @@ function BenchPreview({
   compact = false,
 }: BenchPreviewProps) {
   const [editing, setEditing] = useState(false);
-  const panel = isDark ? 'border-white/10 bg-slate-900/55' : 'border-gray-200 bg-white/80';
-  const row = isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-gray-50 hover:bg-white';
-  const sortedCalledUp = [...players].sort((a, b) => {
-    const aMatch = substitutionTargetPosition ? a.position === substitutionTargetPosition : false;
-    const bMatch = substitutionTargetPosition ? b.position === substitutionTargetPosition : false;
-    if (aMatch !== bMatch) return aMatch ? -1 : 1;
-    return a.name.localeCompare(b.name, 'es');
-  });
-  const source = editing ? editablePlayers : sortedCalledUp;
-  const visible = compact && !editing ? source.slice(0, 8) : source.slice(0, 10);
-  const extraCount = Math.max(0, source.length - visible.length);
+  const panel = isDark ? 'border-white/10 bg-slate-900/55' : 'border-gray-200 bg-white/85';
+  const groupBg = isDark ? 'border-white/10 bg-white/[0.04]' : 'border-gray-200 bg-gray-50/80';
+  const chip = isDark ? 'border-white/10 bg-slate-950/50 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-emerald-50';
+  const source = editing ? editablePlayers : players;
+  const orderedPositions = substitutionTargetPosition
+    ? [substitutionTargetPosition, ...POSITION_DISPLAY_ORDER.filter((pos) => pos !== substitutionTargetPosition)]
+    : POSITION_DISPLAY_ORDER;
+  const groups = orderedPositions
+    .map((pos) => ({
+      pos,
+      players: source
+        .filter((p) => p.position === pos)
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    }))
+    .filter((g) => g.players.length > 0);
   const matchingCount = substitutionTargetPosition
     ? players.filter((p) => p.position === substitutionTargetPosition).length
     : 0;
+  const emptyMessage = editing
+    ? 'No hay jugadores disponibles fuera del campo.'
+    : 'Sin convocados. Pulsa el lápiz para elegirlos.';
 
   return (
-    <section className={`w-full rounded-xl border p-3 backdrop-blur-md ${panel}`}>
+    <section className={`w-full rounded-lg border p-3 backdrop-blur-md ${panel}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className={`text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Convocados</h3>
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
           {!canSendToPitch && substitutionTargetName && (
             <span className="max-w-[120px] truncate rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-400">
               Sale {substitutionTargetName}
@@ -213,90 +220,82 @@ function BenchPreview({
           </button>
         </div>
       </div>
-      {!editing && players.length === 0 ? (
-        <p className={`text-[10px] ${mutedClass}`}>Sin convocados. Pulsa el lápiz para elegirlos.</p>
+      {groups.length === 0 ? (
+        <p className={`text-[10px] ${mutedClass}`}>{emptyMessage}</p>
       ) : (
-        <div className={compact ? 'flex gap-2 overflow-x-auto pb-1' : 'grid gap-1.5'}>
-          {visible.map((p) => {
-            const selected = selectedPlayerId === p.id;
-            const calledUp = p.isCalledUp ?? (!p.isOnPitch && !p.isSentOff);
-            const positionMatch = !!substitutionTargetPosition && p.position === substitutionTargetPosition;
-            const canSubstitute = !canSendToPitch && !!substitutionTargetId;
-            const canUseBenchPlayer = !editLocked && (canSendToPitch || canSubstitute);
-            const actionTitle = editLocked
-              ? 'Desbloquea para cambiar suplentes'
-              : canSendToPitch
-                ? 'Enviar al campo'
-                : canSubstitute
-                  ? `Entra por ${substitutionTargetName || 'titular seleccionado'}`
-                  : 'Selecciona un titular en la cancha para hacer el cambio';
+        <div className={`space-y-2 overflow-y-auto pr-1 ${compact ? 'max-h-[34dvh]' : 'max-h-[min(50dvh,470px)]'}`}>
+          {groups.map(({ pos, players: groupPlayers }) => {
+            const recommended = !!substitutionTargetPosition && pos === substitutionTargetPosition;
             return (
-              <div
-                key={p.id}
-                className={`${compact ? 'min-w-[150px]' : 'w-full'} flex items-center gap-2 rounded-lg border p-2 transition-colors ${row} ${
-                  selected ? 'ring-1 ring-amber-400/80' : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectPlayer(p.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  title={p.name}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
-                    {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
+              <div key={pos} className={`rounded-lg border p-2 ${recommended ? 'border-emerald-400/60 bg-emerald-500/10' : groupBg}`}>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${recommended ? 'text-emerald-400' : mutedClass}`}>
+                    {pos}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-[11px] font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{p.name}</span>
-                    <span className={`block truncate text-[9px] font-bold ${mutedClass}`}>#{p.number} · {p.position}</span>
+                  <span className={`text-[9px] font-black ${recommended ? 'text-emerald-400' : mutedClass}`}>
+                    {recommended ? 'Recomendados' : `${groupPlayers.length}`}
                   </span>
-                  {positionMatch && !editing && (
-                    <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black text-emerald-400">
-                      POS
-                    </span>
-                  )}
-                </button>
-                {editing ? (
-                  <button
-                    type="button"
-                    disabled={editLocked}
-                    onClick={() => onToggleCalledUp(p.id)}
-                    className={`shrink-0 rounded-md px-2 py-1 text-[9px] font-black transition-colors ${
-                      calledUp
-                        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                        : 'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25'
-                    }`}
-                    title={calledUp ? 'Quitar de convocados' : 'Agregar a convocados'}
-                  >
-                    {calledUp ? 'Conv.' : 'Fuera'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!canUseBenchPlayer}
-                    onClick={() => {
-                      if (canSendToPitch) {
-                        onSendToPitch(p.id);
-                        return;
-                      }
-                      if (substitutionTargetId) onSubstitution(substitutionTargetId, p.id);
-                    }}
-                    className={`shrink-0 rounded-md p-1.5 text-emerald-400 transition-colors ${
-                      !canUseBenchPlayer ? 'cursor-not-allowed opacity-35' : 'bg-emerald-500/10 hover:bg-emerald-500/25'
-                    }`}
-                    title={actionTitle}
-                  >
-                    {canSendToPitch ? <LogIn className="h-3.5 w-3.5" /> : <ArrowLeftRight className="h-3.5 w-3.5" />}
-                  </button>
-                )}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+                  {groupPlayers.map((p) => {
+                    const selected = selectedPlayerId === p.id;
+                    const calledUp = p.isCalledUp ?? (!p.isOnPitch && !p.isSentOff);
+                    const canSubstitute = !canSendToPitch && !!substitutionTargetId;
+                    const canUseBenchPlayer = !editLocked && (canSendToPitch || canSubstitute);
+                    const actionTitle = editLocked
+                      ? 'Desbloquea para cambiar convocados'
+                      : canSendToPitch
+                        ? 'Enviar al campo'
+                        : canSubstitute
+                          ? `Entra por ${substitutionTargetName || 'titular seleccionado'}`
+                          : 'Selecciona un titular en la cancha para hacer el cambio';
+                    return (
+                      <div key={p.id} className={`min-w-0 rounded-lg border p-1.5 transition-colors ${chip} ${selected ? 'ring-1 ring-amber-400/80' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => onSelectPlayer(p.id)}
+                          className="flex w-full min-w-0 flex-col items-center gap-1 text-center"
+                          title={p.name}
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
+                            {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
+                          </span>
+                          <span className={`w-full truncate text-[10px] font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{p.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={editing ? editLocked : !canUseBenchPlayer}
+                          onClick={() => {
+                            if (editing) {
+                              onToggleCalledUp(p.id);
+                              return;
+                            }
+                            if (canSendToPitch) {
+                              onSendToPitch(p.id);
+                              return;
+                            }
+                            if (substitutionTargetId) onSubstitution(substitutionTargetId, p.id);
+                          }}
+                          className={`mt-1 flex w-full items-center justify-center rounded-md px-1.5 py-1 text-[9px] font-black transition-colors ${
+                            editing
+                              ? calledUp
+                                ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                                : 'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25'
+                              : canUseBenchPlayer
+                                ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                                : 'cursor-not-allowed bg-slate-500/10 text-slate-400 opacity-55'
+                          }`}
+                          title={editing ? (calledUp ? 'Quitar de convocados' : 'Agregar a convocados') : actionTitle}
+                        >
+                          {editing ? (calledUp ? 'Conv.' : 'Fuera') : canSendToPitch ? <LogIn className="h-3.5 w-3.5" /> : <ArrowLeftRight className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
-          {extraCount > 0 && (
-            <div className={`rounded-lg border px-3 py-2 text-[10px] font-bold ${row} ${mutedClass}`}>
-              +{extraCount} más en plantilla
-            </div>
-          )}
         </div>
       )}
     </section>
@@ -456,13 +455,7 @@ function AppContent() {
   const [currentFormation, setCurrentFormation] = useState('4-3-3');
   const [showGrassMenu, setShowGrassMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [leftBandVisible, setLeftBandVisible] = useState(() => {
-    try {
-      return sessionStorage.getItem(EDIT_UNLOCK_SESSION_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [leftBandVisible, setLeftBandVisible] = useState(true);
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
@@ -651,11 +644,6 @@ function AppContent() {
   useEffect(() => {
     if (focusMode) setSidebarOpen(false);
   }, [focusMode]);
-
-  // Lateral roster: hidden by default while locked, shown when unlocked.
-  useEffect(() => {
-    setLeftBandVisible(editUnlocked);
-  }, [editUnlocked]);
 
   useEffect(() => {
     try {
@@ -1326,6 +1314,26 @@ function AppContent() {
               </div>
             )}
           </div>
+        }
+        calledUpPanel={
+          <div className={`border-b p-3 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+            <BenchPreview
+              players={calledUpPlayers}
+              editablePlayers={benchPlayers}
+              isDark={isDark}
+              mutedClass={mut}
+              selectedPlayerId={selectedPlayerId}
+              substitutionTargetId={selectedPitchPlayer?.id ?? null}
+              substitutionTargetName={selectedPitchPlayer?.name}
+              substitutionTargetPosition={selectedPitchPlayer?.position}
+              onSelectPlayer={setSelectedPlayerId}
+              onSendToPitch={handleSendToPitch}
+              onSubstitution={handleSubstitution}
+              onToggleCalledUp={handleToggleCalledUp}
+              canSendToPitch={canSendBenchToPitch}
+              editLocked={editLocked}
+            />
+          </div>
         } />
       )}
 
@@ -1502,26 +1510,8 @@ function AppContent() {
               laserOnlyLock={false} />
           </div>
           </div>
-          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-start gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1 lg:max-w-[260px] xl:max-w-[300px]">
+          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-start gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1 lg:max-w-[220px] xl:max-w-[260px]">
             <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="stack" />
-            <div className="hidden lg:block w-full">
-              <BenchPreview
-                players={calledUpPlayers}
-                editablePlayers={benchPlayers}
-                isDark={isDark}
-                mutedClass={mut}
-                selectedPlayerId={selectedPlayerId}
-                substitutionTargetId={selectedPitchPlayer?.id ?? null}
-                substitutionTargetName={selectedPitchPlayer?.name}
-                substitutionTargetPosition={selectedPitchPlayer?.position}
-                onSelectPlayer={setSelectedPlayerId}
-                onSendToPitch={handleSendToPitch}
-                onSubstitution={handleSubstitution}
-                onToggleCalledUp={handleToggleCalledUp}
-                canSendToPitch={canSendBenchToPitch}
-                editLocked={editLocked}
-              />
-            </div>
           </aside>
         </div>
 

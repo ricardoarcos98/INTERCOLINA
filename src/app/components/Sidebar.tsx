@@ -28,6 +28,8 @@ interface SidebarProps {
   savedTacticsPanel?: React.ReactNode;
   /** Selector de formaciones (va antes de "Plantilla"). */
   formationsPanel?: React.ReactNode;
+  /** Convocados para la banca del partido. */
+  calledUpPanel?: React.ReactNode;
   /** Bloqueo global: cubre plantilla hasta introducir PIN en la pizarra. */
   editLocked: boolean;
   onRequestUnlock: () => void;
@@ -46,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRequestPersist,
   savedTacticsPanel,
   formationsPanel,
+  calledUpPanel,
   editLocked,
   onRequestUnlock,
   captainPlayerId,
@@ -191,6 +194,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
       {savedTacticsPanel ? <div className="relative z-[30]">{savedTacticsPanel}</div> : null}
       {formationsPanel}
+      {calledUpPanel ? <div className="relative z-[30]">{calledUpPanel}</div> : null}
       <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
         <div>
           <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-emerald-500">Plantilla</h2>

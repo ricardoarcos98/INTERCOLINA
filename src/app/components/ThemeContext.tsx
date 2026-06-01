@@ -28,7 +28,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  isDark: true,
+  isDark: false,
   toggleTheme: () => {},
   grassColor: '#2e7d32',
   setGrassColor: () => {},
@@ -50,7 +50,7 @@ const GRASS_COLORS = [
 export { GRASS_COLORS };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   const [grassColor, setGrassColor] = useState('#2e7d32');
   const [grassCut, setGrassCut] = useState<GrassCutStyle>('stripe_h');
 
