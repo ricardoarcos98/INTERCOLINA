@@ -151,6 +151,26 @@ type BenchPreviewProps = {
   compact?: boolean;
 };
 
+type MatchStaffBandProps = {
+  isDark: boolean;
+  mutedClass: string;
+  coachPhotoUrl: string;
+  coachName: string;
+  players: Player[];
+  editablePlayers: Player[];
+  selectedPlayerId: string | null;
+  substitutionTargetId: string | null;
+  substitutionTargetName?: string;
+  substitutionTargetPosition?: Position;
+  onSelectPlayer: (id: string) => void;
+  onSendToPitch: (id: string) => void;
+  onSubstitution: (onPitchId: string, benchId: string) => void;
+  onToggleCalledUp: (id: string) => void;
+  canSendToPitch: boolean;
+  editLocked: boolean;
+  onClose?: () => void;
+};
+
 function BenchPreview({
   players,
   editablePlayers,
@@ -299,6 +319,63 @@ function BenchPreview({
         </div>
       )}
     </section>
+  );
+}
+
+function MatchStaffBand({
+  isDark,
+  mutedClass,
+  coachPhotoUrl,
+  coachName,
+  players,
+  editablePlayers,
+  selectedPlayerId,
+  substitutionTargetId,
+  substitutionTargetName,
+  substitutionTargetPosition,
+  onSelectPlayer,
+  onSendToPitch,
+  onSubstitution,
+  onToggleCalledUp,
+  canSendToPitch,
+  editLocked,
+  onClose,
+}: MatchStaffBandProps) {
+  return (
+    <aside className={`flex h-full min-h-0 w-full flex-col border-l ${isDark ? 'border-white/10 bg-slate-900/80' : 'border-gray-200 bg-white/88'} backdrop-blur-md`}>
+      <div className={`flex items-center justify-between gap-2 border-b px-3 py-3 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <div className="min-w-0">
+          <h2 className="text-xs font-black uppercase tracking-widest text-emerald-500">Banca</h2>
+          <p className={`truncate text-[10px] ${mutedClass}`}>DT y convocados</p>
+        </div>
+        {onClose && (
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-500/10" title="Cerrar banda derecha">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="mb-3">
+          <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="row" />
+        </div>
+        <BenchPreview
+          players={players}
+          editablePlayers={editablePlayers}
+          isDark={isDark}
+          mutedClass={mutedClass}
+          selectedPlayerId={selectedPlayerId}
+          substitutionTargetId={substitutionTargetId}
+          substitutionTargetName={substitutionTargetName}
+          substitutionTargetPosition={substitutionTargetPosition}
+          onSelectPlayer={onSelectPlayer}
+          onSendToPitch={onSendToPitch}
+          onSubstitution={onSubstitution}
+          onToggleCalledUp={onToggleCalledUp}
+          canSendToPitch={canSendToPitch}
+          editLocked={editLocked}
+        />
+      </div>
+    </aside>
   );
 }
 
@@ -456,6 +533,7 @@ function AppContent() {
   const [showGrassMenu, setShowGrassMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [leftBandVisible, setLeftBandVisible] = useState(false);
+  const [rightBandVisible, setRightBandVisible] = useState(false);
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
@@ -1128,6 +1206,17 @@ function AppContent() {
               <ChevronsRight className="w-4 h-4" />
             </button>
           )}
+          {!rightBandVisible && (
+            <button
+              type="button"
+              onClick={() => setRightBandVisible(true)}
+              className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} text-emerald-400`}
+              title="Mostrar banca y convocados"
+              aria-pressed={false}
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+          )}
         </>
       )}
 
@@ -1399,6 +1488,9 @@ function AppContent() {
             <button type="button" onClick={() => setFocusMode(true)} className={btn()} title="Modo foco: solo titular en el campo">
               <ScanEye className="w-4 h-4" />
             </button>
+            <button type="button" onClick={() => setRightBandVisible(true)} className={`${btn()} lg:hidden`} title="Banca y convocados">
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
             <button type="button" onClick={toggleTheme} className={btn()} title={isDark ? 'Claro' : 'Oscuro'}>
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -1456,8 +1548,8 @@ function AppContent() {
 
         {!focusMode ? (
         <>
-        {/* Cancha centrada (1fr | 520 | 1fr); DT a la derecha sin tapar el campo */}
-        <div className="w-full max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,520px)_minmax(0,1fr)] xl:grid-cols-[1fr_minmax(0,640px)_minmax(0,1fr)] 2xl:grid-cols-[1fr_minmax(0,760px)_minmax(0,1fr)] gap-3 items-start">
+        {/* Cancha centrada: el apoyo vive en bandas laterales desplegables. */}
+        <div className="w-full max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,680px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,780px)_minmax(0,1fr)] gap-3 items-start">
           <div className="hidden lg:block min-w-0" aria-hidden />
           <div className="w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] relative min-w-0 justify-self-center">
           <TacticalToolbar
@@ -1510,9 +1602,7 @@ function AppContent() {
               laserOnlyLock={false} />
           </div>
           </div>
-          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-start gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1 lg:max-w-[220px] xl:max-w-[260px]">
-            <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="stack" />
-          </aside>
+          <div className="hidden lg:block min-w-0" aria-hidden />
         </div>
 
         {/* Mobile info bar */}
@@ -1524,25 +1614,6 @@ function AppContent() {
               <span key={l.line} className={`h-3 w-3 shrink-0 rounded-full ${l.color}`} style={{ boxShadow: `0 0 6px ${l.shadow}` }} />
             ))}
           </div>
-        </div>
-        <div className="mt-2 w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] lg:hidden">
-          <BenchPreview
-            players={calledUpPlayers}
-            editablePlayers={benchPlayers}
-            isDark={isDark}
-            mutedClass={mut}
-            selectedPlayerId={selectedPlayerId}
-            substitutionTargetId={selectedPitchPlayer?.id ?? null}
-            substitutionTargetName={selectedPitchPlayer?.name}
-            substitutionTargetPosition={selectedPitchPlayer?.position}
-            onSelectPlayer={setSelectedPlayerId}
-            onSendToPitch={handleSendToPitch}
-            onSubstitution={handleSubstitution}
-            onToggleCalledUp={handleToggleCalledUp}
-            canSendToPitch={canSendBenchToPitch}
-            editLocked={editLocked}
-            compact
-          />
         </div>
         </>
         ) : (
@@ -1647,6 +1718,33 @@ function AppContent() {
         </div>
         )}
       </div>
+
+      {!focusMode && rightBandVisible && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/45 lg:hidden" onClick={() => setRightBandVisible(false)} />
+          <div className="fixed bottom-0 right-0 top-0 z-50 w-[min(88vw,380px)] lg:static lg:z-auto lg:w-[300px] xl:w-[340px]">
+            <MatchStaffBand
+              isDark={isDark}
+              mutedClass={mut}
+              coachPhotoUrl={coachPhotoUrl}
+              coachName={coachName}
+              players={calledUpPlayers}
+              editablePlayers={benchPlayers}
+              selectedPlayerId={selectedPlayerId}
+              substitutionTargetId={selectedPitchPlayer?.id ?? null}
+              substitutionTargetName={selectedPitchPlayer?.name}
+              substitutionTargetPosition={selectedPitchPlayer?.position}
+              onSelectPlayer={setSelectedPlayerId}
+              onSendToPitch={handleSendToPitch}
+              onSubstitution={handleSubstitution}
+              onToggleCalledUp={handleToggleCalledUp}
+              canSendToPitch={canSendBenchToPitch}
+              editLocked={editLocked}
+              onClose={() => setRightBandVisible(false)}
+            />
+          </div>
+        </>
+      )}
 
     </div>
   );

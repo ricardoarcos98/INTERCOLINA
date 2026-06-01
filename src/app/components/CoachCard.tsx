@@ -7,8 +7,8 @@ type Props = {
   isDark: boolean;
   /** Vista compacta o más grande en foco */
   size: 'compact' | 'focus';
-  /** stack = columna; corner = chip esquina sup. der. */
-  layout?: 'stack' | 'corner';
+  /** stack = columna; corner = chip esquina sup. der.; row = fila compacta para paneles. */
+  layout?: 'stack' | 'corner' | 'row';
 };
 
 export const CoachCard: React.FC<Props> = ({ photoUrl, name, isDark, size, layout = 'stack' }) => {
@@ -33,6 +33,26 @@ export const CoachCard: React.FC<Props> = ({ photoUrl, name, isDark, size, layou
         <div className="min-w-0 flex-1 text-right pr-0.5">
           <div className={`font-black uppercase tracking-wider text-[8px] md:text-[9px] ${isDark ? 'text-amber-400/90' : 'text-amber-600'}`}>D.T.</div>
           <div className={`text-[10px] md:text-xs font-bold leading-tight line-clamp-2 ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
+            {name || 'Director técnico'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === 'row') {
+    return (
+      <div className={`flex w-full items-center gap-3 rounded-lg border p-2.5 ${ring}`}>
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-amber-500/60 bg-slate-800">
+          {photoUrl ? (
+            <img src={photoUrl} alt={name} className="h-full w-full object-cover object-top" draggable={false} />
+          ) : (
+            <User className="h-6 w-6 opacity-50" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-amber-400/90' : 'text-amber-600'}`}>D.T.</div>
+          <div className={`truncate text-xs font-bold ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>
             {name || 'Director técnico'}
           </div>
         </div>
