@@ -19,7 +19,7 @@ import {
   preparePitchDomForCapture,
   waitForTokenFaceImages,
 } from '../utils/pitchExportCapture';
-import { LINE_LEGEND, lineLegendSwatch } from './positionStyles';
+import { LINE_LEGEND, POSITION_DISPLAY_ORDER, lineLegendSwatch } from './positionStyles';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
 const TACTIC_KEY = 'tactic-main';
@@ -455,7 +455,7 @@ function AppContent() {
   const [currentFormation, setCurrentFormation] = useState('4-3-3');
   const [showGrassMenu, setShowGrassMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [leftBandVisible, setLeftBandVisible] = useState(true);
+  const [leftBandVisible, setLeftBandVisible] = useState(false);
 
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
   const [activeTool, setActiveTool] = useState<PitchTool>('move');
