@@ -11,6 +11,8 @@ export interface Player {
   isOnPitch: boolean;
   /** No puede volver a entrar; el equipo juega con 11 - n expulsados en cancha. */
   isSentOff?: boolean;
+  /** Disponible en la banca de convocados para esta táctica/partido. */
+  isCalledUp?: boolean;
 }
 
 export interface Formation {

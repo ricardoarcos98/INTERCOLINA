@@ -156,6 +156,7 @@
         pitchY: p.pitchY,
         isOnPitch: p.isOnPitch,
         isSentOff: !!p.isSentOff,
+        isCalledUp: !!p.isCalledUp,
       }));
       if (keys.length > 0) {
         await kv.mset(keys, values);
@@ -218,6 +219,7 @@
             pitchY: v.pitchY ?? 50,
             isOnPitch: v.isOnPitch ?? false,
             isSentOff: !!(v.isSentOff ?? v.expulsado),
+            isCalledUp: v.isCalledUp ?? !v.isOnPitch,
           }));
       }
 
