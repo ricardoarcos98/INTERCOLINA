@@ -11,7 +11,7 @@ import { Toaster, toast } from 'sonner';
 import {
   Sun, Moon, Palette, Download, Pencil, PenLine, Trash2, Minus, Spline, CornerDownRight,
   Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, Cloud, Loader2,
-  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight, LogIn,
+  Sparkles, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight, LogIn,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
@@ -61,6 +61,12 @@ export const POSITION_LABELS: Record<Position, string> = {
   ARQ: 'Arquero', DFC: 'Defensa Central', LI: 'Lateral Izq.', LD: 'Lateral Der.',
   MCD: 'Medio Centro Def.', MC: 'Medio Centro', MCO: 'Medio Centro Of.',
   ED: 'Extremo Der.', EI: 'Extremo Izq.', DC: 'Delantero Centro',
+};
+
+const shortPlayerName = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 2) return name;
+  return `${parts[0]} ${parts[1][0]}.`;
 };
 
 /** Expulsado no puede estar en cancha; normaliza datos de API / copias. */
@@ -190,20 +196,15 @@ function BenchPreview({
 }: BenchPreviewProps) {
   const [editing, setEditing] = useState(false);
   const panel = isDark ? 'border-white/10 bg-slate-900/55' : 'border-gray-200 bg-white/85';
-  const groupBg = isDark ? 'border-white/10 bg-white/[0.04]' : 'border-gray-200 bg-gray-50/80';
   const chip = isDark ? 'border-white/10 bg-slate-950/50 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-emerald-50';
-  const source = editing ? editablePlayers : players;
-  const orderedPositions = substitutionTargetPosition
-    ? [substitutionTargetPosition, ...POSITION_DISPLAY_ORDER.filter((pos) => pos !== substitutionTargetPosition)]
-    : POSITION_DISPLAY_ORDER;
-  const groups = orderedPositions
-    .map((pos) => ({
-      pos,
-      players: source
-        .filter((p) => p.position === pos)
-        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
-    }))
-    .filter((g) => g.players.length > 0);
+  const source = [...(editing ? editablePlayers : players)].sort((a, b) => {
+    const aRecommended = substitutionTargetPosition && a.position === substitutionTargetPosition ? 0 : 1;
+    const bRecommended = substitutionTargetPosition && b.position === substitutionTargetPosition ? 0 : 1;
+    if (aRecommended !== bRecommended) return aRecommended - bRecommended;
+    const byPosition = POSITION_DISPLAY_ORDER.indexOf(a.position) - POSITION_DISPLAY_ORDER.indexOf(b.position);
+    if (byPosition !== 0) return byPosition;
+    return a.name.localeCompare(b.name, 'es');
+  });
   const matchingCount = substitutionTargetPosition
     ? players.filter((p) => p.position === substitutionTargetPosition).length
     : 0;
@@ -213,21 +214,19 @@ function BenchPreview({
 
   return (
     <section className={`w-full rounded-lg border p-3 backdrop-blur-md ${panel}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className={`text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Convocados</h3>
-        <div className="flex min-w-0 items-center gap-1.5">
-          {!canSendToPitch && substitutionTargetName && (
-            <span className="max-w-[120px] truncate rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-400">
-              Sale {substitutionTargetName}
-            </span>
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className={`truncate text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Convocados</h3>
+          {!editing && substitutionTargetName && (
+            <p className="mt-1 max-w-full truncate text-[10px] font-black text-amber-400">
+              Sale {shortPlayerName(substitutionTargetName)}
+              {substitutionTargetPosition ? ` · ${matchingCount} para ${substitutionTargetPosition}` : ''}
+            </p>
           )}
-          {!editing && substitutionTargetPosition && (
-            <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-black text-sky-400">
-              {matchingCount} {substitutionTargetPosition}
-            </span>
-          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">
-            {players.length}
+            {editing ? editablePlayers.length : players.length}
           </span>
           <button
             type="button"
@@ -240,79 +239,73 @@ function BenchPreview({
           </button>
         </div>
       </div>
-      {groups.length === 0 ? (
+      {source.length === 0 ? (
         <p className={`text-[10px] ${mutedClass}`}>{emptyMessage}</p>
       ) : (
-        <div className={`space-y-2 overflow-y-auto pr-1 ${compact ? 'max-h-[34dvh]' : 'max-h-[min(50dvh,470px)]'}`}>
-          {groups.map(({ pos, players: groupPlayers }) => {
-            const recommended = !!substitutionTargetPosition && pos === substitutionTargetPosition;
+        <div className={`grid grid-cols-3 gap-2 overflow-y-auto pr-1 ${compact ? 'max-h-[34dvh]' : 'max-h-[min(54dvh,500px)]'}`}>
+          {source.map((p) => {
+            const selected = selectedPlayerId === p.id;
+            const calledUp = p.isCalledUp ?? (!p.isOnPitch && !p.isSentOff);
+            const recommended = !!substitutionTargetPosition && p.position === substitutionTargetPosition;
+            const canSubstitute = !!substitutionTargetId;
+            const canDirectSend = canSendToPitch && !canSubstitute;
+            const canUseBenchPlayer = !editLocked && (canDirectSend || canSubstitute);
+            const actionTitle = editLocked
+              ? 'Desbloquea para cambiar convocados'
+              : canDirectSend
+                ? 'Enviar al campo'
+                : canSubstitute
+                  ? `Entra por ${substitutionTargetName || 'titular seleccionado'}`
+                  : 'Toca un titular en la cancha para ver recomendaciones';
             return (
-              <div key={pos} className={`rounded-lg border p-2 ${recommended ? 'border-emerald-400/60 bg-emerald-500/10' : groupBg}`}>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${recommended ? 'text-emerald-400' : mutedClass}`}>
-                    {pos}
+              <div
+                key={p.id}
+                className={`min-w-0 rounded-xl border p-1.5 text-center transition-colors ${chip} ${
+                  selected ? 'ring-1 ring-amber-400/80' : recommended ? 'border-emerald-400/70 bg-emerald-500/10' : ''
+                }`}
+              >
+                <button type="button" onClick={() => onSelectPlayer(p.id)} className="flex w-full min-w-0 flex-col items-center gap-1" title={p.name}>
+                  <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
+                    {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
+                    {recommended && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-slate-900" />}
                   </span>
-                  <span className={`text-[9px] font-black ${recommended ? 'text-emerald-400' : mutedClass}`}>
-                    {recommended ? 'Recomendados' : `${groupPlayers.length}`}
+                  <span
+                    className={`min-h-[1.65rem] w-full overflow-hidden break-words text-[10px] font-bold leading-[0.82rem] ${isDark ? 'text-slate-100' : 'text-gray-800'}`}
+                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                  >
+                    {shortPlayerName(p.name)}
                   </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-                  {groupPlayers.map((p) => {
-                    const selected = selectedPlayerId === p.id;
-                    const calledUp = p.isCalledUp ?? (!p.isOnPitch && !p.isSentOff);
-                    const canSubstitute = !canSendToPitch && !!substitutionTargetId;
-                    const canUseBenchPlayer = !editLocked && (canSendToPitch || canSubstitute);
-                    const actionTitle = editLocked
-                      ? 'Desbloquea para cambiar convocados'
-                      : canSendToPitch
-                        ? 'Enviar al campo'
-                        : canSubstitute
-                          ? `Entra por ${substitutionTargetName || 'titular seleccionado'}`
-                          : 'Selecciona un titular en la cancha para hacer el cambio';
-                    return (
-                      <div key={p.id} className={`min-w-0 rounded-lg border p-1.5 transition-colors ${chip} ${selected ? 'ring-1 ring-amber-400/80' : ''}`}>
-                        <button
-                          type="button"
-                          onClick={() => onSelectPlayer(p.id)}
-                          className="flex w-full min-w-0 flex-col items-center gap-1 text-center"
-                          title={p.name}
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
-                            {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
-                          </span>
-                          <span className={`w-full truncate text-[10px] font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{p.name}</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={editing ? editLocked : !canUseBenchPlayer}
-                          onClick={() => {
-                            if (editing) {
-                              onToggleCalledUp(p.id);
-                              return;
-                            }
-                            if (canSendToPitch) {
-                              onSendToPitch(p.id);
-                              return;
-                            }
-                            if (substitutionTargetId) onSubstitution(substitutionTargetId, p.id);
-                          }}
-                          className={`mt-1 flex w-full items-center justify-center rounded-md px-1.5 py-1 text-[9px] font-black transition-colors ${
-                            editing
-                              ? calledUp
-                                ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                                : 'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25'
-                              : canUseBenchPlayer
-                                ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                                : 'cursor-not-allowed bg-slate-500/10 text-slate-400 opacity-55'
-                          }`}
-                          title={editing ? (calledUp ? 'Quitar de convocados' : 'Agregar a convocados') : actionTitle}
-                        >
-                          {editing ? (calledUp ? 'Conv.' : 'Fuera') : canSendToPitch ? <LogIn className="h-3.5 w-3.5" /> : <ArrowLeftRight className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+                  <span className={`max-w-full truncate rounded-full px-1.5 py-0.5 text-[9px] font-black ${recommended ? 'bg-emerald-500/20 text-emerald-400' : mutedClass}`}>
+                    {p.position}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={editing ? editLocked : !canUseBenchPlayer}
+                  onClick={() => {
+                    if (editing) {
+                      onToggleCalledUp(p.id);
+                      return;
+                    }
+                    if (canSubstitute && substitutionTargetId) {
+                      onSubstitution(substitutionTargetId, p.id);
+                      return;
+                    }
+                    if (canDirectSend) onSendToPitch(p.id);
+                  }}
+                  className={`mt-1 flex w-full items-center justify-center rounded-lg px-1.5 py-1 text-[9px] font-black transition-colors ${
+                    editing
+                      ? calledUp
+                        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                        : 'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25'
+                      : canUseBenchPlayer
+                        ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
+                        : 'cursor-not-allowed bg-slate-500/10 text-slate-400 opacity-55'
+                  }`}
+                  title={editing ? (calledUp ? 'Quitar de convocados' : 'Agregar a convocados') : actionTitle}
+                >
+                  {editing ? (calledUp ? 'Conv.' : 'Fuera') : <LogIn className="h-3.5 w-3.5" />}
+                </button>
               </div>
             );
           })}
@@ -423,8 +416,8 @@ function TacticalToolbar({
       <button type="button" disabled={toolDisabled('pen')} onClick={() => setActiveTool('pen')} className={btn(activeTool === 'pen')} title="Lápiz (marca fija en la planilla)">
         <Pencil className="w-4 h-4" />
       </button>
-      <button type="button" disabled={toolDisabled('swap')} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Intercambiar titulares (2 toques)">
-        <ArrowLeftRight className="w-4 h-4" />
+      <button type="button" disabled={toolDisabled('swap')} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Cambio por convocado">
+        <LogIn className="w-4 h-4" />
       </button>
       {sep}
       <button type="button" disabled={lockFull || lockLaserOnly} onClick={() => setArrowStyle('solid')} className={btn(arrowStyle === 'solid')} title="Solida">
@@ -778,31 +771,12 @@ function AppContent() {
         toast.error('Solo titulares en el campo');
         return;
       }
-      if (!swapPendingId) {
-        setSwapPendingId(id);
-        toast.message('Toca otro titular para intercambiar posición y rol');
-        return;
-      }
-      if (swapPendingId === id) {
-        setSwapPendingId(null);
-        toast('Cancelado');
-        return;
-      }
-      const aId = swapPendingId;
       setSwapPendingId(null);
-      setPlayers((ps) => {
-        const a = ps.find((x) => x.id === aId);
-        const b = ps.find((x) => x.id === id);
-        if (!a || !b) return ps;
-        return ps.map((pl) => {
-          if (pl.id === aId) return { ...pl, pitchX: b.pitchX, pitchY: b.pitchY, position: b.position };
-          if (pl.id === id) return { ...pl, pitchX: a.pitchX, pitchY: a.pitchY, position: a.position };
-          return pl;
-        });
-      });
-      toast.success('Intercambio listo');
+      setSelectedPlayerId(id);
+      setRightBandVisible(true);
+      toast.message(`Cambio: ${shortPlayerName(p.name)} (${p.position})`);
     },
-    [players, swapPendingId],
+    [players],
   );
 
   // Mark unsaved when data changes (after initial load)
@@ -1154,14 +1128,205 @@ function AppContent() {
     }
   };
 
+  const composeTacticExport = async (pitchDataUrl: string) => {
+    const loadImage = (src: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+
+    const proxiedPhotoUrl = (url: string) => {
+      if (!url) return '';
+      if (/^https?:\/\//i.test(url)) return `${API_BASE}/image-proxy?url=${encodeURIComponent(url)}`;
+      return url;
+    };
+
+    const drawRoundedRect = (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radius: number,
+    ) => {
+      const r = Math.min(radius, width / 2, height / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + width - r, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+      ctx.lineTo(x + width, y + height - r);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+      ctx.lineTo(x + r, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    };
+
+    const drawCoverImage = (
+      ctx: CanvasRenderingContext2D,
+      img: HTMLImageElement,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ) => {
+      const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+      const sw = width / scale;
+      const sh = height / scale;
+      const sx = (img.naturalWidth - sw) / 2;
+      const sy = (img.naturalHeight - sh) / 2;
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, width, height);
+    };
+
+    const drawClampedText = (
+      ctx: CanvasRenderingContext2D,
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      lineHeight: number,
+      maxLines: number,
+    ) => {
+      const words = text.split(/\s+/).filter(Boolean);
+      const lines: string[] = [];
+      let line = '';
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width <= maxWidth || !line) {
+          line = test;
+          continue;
+        }
+        lines.push(line);
+        line = word;
+        if (lines.length === maxLines) break;
+      }
+      if (line && lines.length < maxLines) lines.push(line);
+      lines.slice(0, maxLines).forEach((lineText, index) => {
+        const finalText =
+          index === maxLines - 1 && words.join(' ') !== lines.join(' ') && ctx.measureText(`${lineText}...`).width <= maxWidth
+            ? `${lineText}...`
+            : lineText;
+        ctx.fillText(finalText, x, y + index * lineHeight);
+      });
+    };
+
+    const pitchImg = await loadImage(pitchDataUrl);
+    const sortedCalledUp = [...calledUpPlayers].sort((a, b) => {
+      const byPosition = POSITION_DISPLAY_ORDER.indexOf(a.position) - POSITION_DISPLAY_ORDER.indexOf(b.position);
+      if (byPosition !== 0) return byPosition;
+      return a.name.localeCompare(b.name, 'es');
+    });
+    const cols = 3;
+    const panelWidth = Math.max(390, Math.round(pitchImg.naturalWidth * 0.34));
+    const panelPadding = 28;
+    const gap = 14;
+    const cardWidth = (panelWidth - panelPadding * 2 - gap * (cols - 1)) / cols;
+    const cardHeight = 132;
+    const rows = Math.max(1, Math.ceil(sortedCalledUp.length / cols));
+    const panelNeededHeight = 150 + rows * cardHeight + (rows - 1) * gap + 36;
+    const canvas = document.createElement('canvas');
+    canvas.width = pitchImg.naturalWidth + panelWidth;
+    canvas.height = Math.max(pitchImg.naturalHeight, panelNeededHeight);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return pitchDataUrl;
+
+    ctx.fillStyle = '#eef3ea';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(pitchImg, 0, 0);
+
+    const panelX = pitchImg.naturalWidth;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(panelX, 0, panelWidth, canvas.height);
+    ctx.strokeStyle = '#d9e2ec';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 1, 0);
+    ctx.lineTo(panelX + 1, canvas.height);
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '900 28px sans-serif';
+    ctx.fillText('CONVOCADOS', panelX + panelPadding, 46);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '800 15px sans-serif';
+    ctx.fillText(`${currentFormation} · ${sortedCalledUp.length} jugadores`, panelX + panelPadding, 74);
+    ctx.fillText(`DT: ${coachName || 'Intercolina'}`, panelX + panelPadding, 98);
+
+    const photoResults = await Promise.allSettled(sortedCalledUp.map((p) => (p.photoUrl ? loadImage(proxiedPhotoUrl(p.photoUrl)) : Promise.reject())));
+    let y = 126;
+    sortedCalledUp.forEach((p, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = panelX + panelPadding + col * (cardWidth + gap);
+      y = 126 + row * (cardHeight + gap);
+      const photo = photoResults[index].status === 'fulfilled' ? photoResults[index].value : null;
+
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 20);
+      ctx.fill();
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const cx = x + cardWidth / 2;
+      const cy = y + 42;
+      const r = 30;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+      if (photo) {
+        drawCoverImage(ctx, photo, cx - r, cy - r, r * 2, r * 2);
+      } else {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '900 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(p.number), cx, cy);
+      }
+      ctx.restore();
+
+      ctx.fillStyle = '#16a34a';
+      drawRoundedRect(ctx, x + cardWidth / 2 - 22, y + 70, 44, 20, 10);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(p.position, x + cardWidth / 2, y + 84);
+
+      ctx.fillStyle = '#111827';
+      ctx.font = '800 12px sans-serif';
+      ctx.textAlign = 'left';
+      drawClampedText(ctx, shortPlayerName(p.name), x + 8, y + 108, cardWidth - 16, 14, 2);
+    });
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    return canvas.toDataURL('image/png');
+  };
+
   const handleDownload = async () => {
-    const t = toast.loading('Generando imagen con fotos…');
+    const t = toast.loading('Generando imagen con titular y convocados…');
     const d = await captureImage();
     toast.dismiss(t);
     if (!d) return;
+    let href = d;
+    try {
+      href = await composeTacticExport(d);
+    } catch (err) {
+      console.warn('[export] roster composition failed, downloading pitch only', err);
+      toast.message('No se pudo anexar convocados; descargo solo la cancha.');
+    }
     const a = document.createElement('a');
     a.download = `tactica-${currentFormation}.png`;
-    a.href = d;
+    a.href = href;
     a.click();
     toast.success('Descargada');
   };
@@ -1462,7 +1627,7 @@ function AppContent() {
                       : activeTool === 'pen'
                         ? 'Lápiz: trazos que se guardan en la planilla'
                         : activeTool === 'swap'
-                        ? 'Dos toques en titulares para intercambiar'
+                        ? 'Toca un titular para ver convocados recomendados'
                         : 'Arrastra jugadores'}
               </p>
             </div>
