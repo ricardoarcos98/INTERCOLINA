@@ -11,7 +11,7 @@ import { Toaster, toast } from 'sonner';
 import {
   Sun, Moon, Palette, Download, Pencil, PenLine, Trash2, Minus, Spline, CornerDownRight,
   Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, Cloud, Loader2,
-  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight,
+  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight, LogIn,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
@@ -127,6 +127,94 @@ type TacticalToolbarProps = {
   /** off = todas; full = candado en vista completa; laser-only = modo foco con candado (solo láser). */
   toolLock?: 'off' | 'full' | 'laser-only';
 };
+
+type BenchPreviewProps = {
+  players: Player[];
+  isDark: boolean;
+  mutedClass: string;
+  selectedPlayerId: string | null;
+  onSelectPlayer: (id: string) => void;
+  onSendToPitch: (id: string) => void;
+  canSendToPitch: boolean;
+  editLocked: boolean;
+  compact?: boolean;
+};
+
+function BenchPreview({
+  players,
+  isDark,
+  mutedClass,
+  selectedPlayerId,
+  onSelectPlayer,
+  onSendToPitch,
+  canSendToPitch,
+  editLocked,
+  compact = false,
+}: BenchPreviewProps) {
+  const panel = isDark ? 'border-white/10 bg-slate-900/55' : 'border-gray-200 bg-white/80';
+  const row = isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-gray-50 hover:bg-white';
+  const visible = compact ? players.slice(0, 8) : players.slice(0, 10);
+  const extraCount = Math.max(0, players.length - visible.length);
+
+  return (
+    <section className={`w-full rounded-xl border p-3 backdrop-blur-md ${panel}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className={`text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Suplentes</h3>
+        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">
+          {players.length}
+        </span>
+      </div>
+      {players.length === 0 ? (
+        <p className={`text-[10px] ${mutedClass}`}>Banco vacío</p>
+      ) : (
+        <div className={compact ? 'flex gap-2 overflow-x-auto pb-1' : 'grid gap-1.5'}>
+          {visible.map((p) => {
+            const selected = selectedPlayerId === p.id;
+            return (
+              <div
+                key={p.id}
+                className={`${compact ? 'min-w-[150px]' : 'w-full'} flex items-center gap-2 rounded-lg border p-2 transition-colors ${row} ${
+                  selected ? 'ring-1 ring-amber-400/80' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelectPlayer(p.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  title={p.name}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
+                    {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-[11px] font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{p.name}</span>
+                    <span className={`block truncate text-[9px] font-bold ${mutedClass}`}>#{p.number} · {p.position}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={!canSendToPitch || editLocked}
+                  onClick={() => onSendToPitch(p.id)}
+                  className={`shrink-0 rounded-md p-1.5 text-emerald-400 transition-colors ${
+                    !canSendToPitch || editLocked ? 'cursor-not-allowed opacity-35' : 'bg-emerald-500/10 hover:bg-emerald-500/25'
+                  }`}
+                  title={editLocked ? 'Desbloquea para enviar al campo' : canSendToPitch ? 'Enviar al campo' : 'Ya no hay cupo en cancha'}
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+          {extraCount > 0 && (
+            <div className={`rounded-lg border px-3 py-2 text-[10px] font-bold ${row} ${mutedClass}`}>
+              +{extraCount} más en plantilla
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function TacticalToolbar({
   variant,
@@ -337,6 +425,8 @@ function AppContent() {
   const sentOffCount = players.filter((p) => p.isSentOff).length;
   const maxPlayersOnPitch = Math.max(0, 11 - sentOffCount);
   const pitchPlayers = players.filter((p) => p.isOnPitch);
+  const benchPlayers = players.filter((p) => !p.isOnPitch && !p.isSentOff);
+  const canSendBenchToPitch = pitchPlayers.length < maxPlayersOnPitch;
   const expectedPitchPhotos = pitchPlayers.filter((p) => !!p.photoUrl).length;
   const pitchPhotosSignature = pitchPlayers
   .map((p) => `${p.id}:${p.photoUrl || ''}`)
@@ -1337,8 +1427,20 @@ function AppContent() {
               laserOnlyLock={false} />
           </div>
           </div>
-          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-end gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1">
+          <aside className="flex w-full flex-row lg:flex-col justify-center lg:justify-start gap-2 sm:pt-1 justify-self-center lg:justify-self-end lg:pr-1 lg:max-w-[260px] xl:max-w-[300px]">
             <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="stack" />
+            <div className="hidden lg:block w-full">
+              <BenchPreview
+                players={benchPlayers}
+                isDark={isDark}
+                mutedClass={mut}
+                selectedPlayerId={selectedPlayerId}
+                onSelectPlayer={setSelectedPlayerId}
+                onSendToPitch={handleSendToPitch}
+                canSendToPitch={canSendBenchToPitch}
+                editLocked={editLocked}
+              />
+            </div>
           </aside>
         </div>
 
@@ -1351,6 +1453,19 @@ function AppContent() {
               <span key={l.line} className={`h-3 w-3 shrink-0 rounded-full ${l.color}`} style={{ boxShadow: `0 0 6px ${l.shadow}` }} />
             ))}
           </div>
+        </div>
+        <div className="mt-2 w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] lg:hidden">
+          <BenchPreview
+            players={benchPlayers}
+            isDark={isDark}
+            mutedClass={mut}
+            selectedPlayerId={selectedPlayerId}
+            onSelectPlayer={setSelectedPlayerId}
+            onSendToPitch={handleSendToPitch}
+            canSendToPitch={canSendBenchToPitch}
+            editLocked={editLocked}
+            compact
+          />
         </div>
         </>
         ) : (
