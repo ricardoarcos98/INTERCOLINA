@@ -6,7 +6,7 @@ import { positionTokenBorderClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
 import { projectId } from '/utils/supabase/info';
 
-export type PitchTool = 'move' | 'draw' | 'opponent' | 'laser' | 'pen' | 'swap';
+export type PitchTool = 'move' | 'draw' | 'opponent' | 'laser' | 'pen' | 'swap' | 'replace';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-f6cf3a30`;
 
@@ -383,7 +383,7 @@ export const Pitch: React.FC<PitchProps> = ({
       : activeTool === 'draw' ? 'cursor-crosshair'
         : activeTool === 'opponent' ? 'cursor-cell'
           : activeTool === 'laser' || activeTool === 'pen' ? 'cursor-crosshair'
-            : activeTool === 'swap' ? 'cursor-alias'
+            : activeTool === 'swap' || activeTool === 'replace' ? 'cursor-alias'
               : '';
 
   /** El láser debe “atravesar” fichas y rivales; en candado+foco solo láser. */
@@ -655,7 +655,7 @@ const PlayerToken: React.FC<{
   const y = useMotionValue(0);
   const canDrag = !readOnly && activeTool === 'move';
   const laserPassthrough = !!laserOverlay;
-  const swapMode = !readOnly && activeTool === 'swap';
+  const swapMode = !readOnly && (activeTool === 'swap' || activeTool === 'replace');
 
   const handleDragEnd = (_: any, info: any) => {
     if (!pitchRef.current) return;

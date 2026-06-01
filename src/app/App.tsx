@@ -11,7 +11,7 @@ import { Toaster, toast } from 'sonner';
 import {
   Sun, Moon, Palette, Download, Pencil, PenLine, Trash2, Minus, Spline, CornerDownRight,
   Menu, Move, Circle, Plus, X, ChevronDown, ChevronUp, Save, Cloud, Loader2,
-  Sparkles, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight, LogIn,
+  Sparkles, ArrowLeftRight, ScanEye, Lock, Unlock, ChevronsLeft, ChevronsRight, LogIn,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
@@ -416,7 +416,10 @@ function TacticalToolbar({
       <button type="button" disabled={toolDisabled('pen')} onClick={() => setActiveTool('pen')} className={btn(activeTool === 'pen')} title="Lápiz (marca fija en la planilla)">
         <Pencil className="w-4 h-4" />
       </button>
-      <button type="button" disabled={toolDisabled('swap')} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Cambio por convocado">
+      <button type="button" disabled={toolDisabled('swap')} onClick={() => setActiveTool('swap')} className={btn(activeTool === 'swap')} title="Intercambiar posiciones">
+        <ArrowLeftRight className="w-4 h-4" />
+      </button>
+      <button type="button" disabled={toolDisabled('replace')} onClick={() => setActiveTool('replace')} className={btn(activeTool === 'replace')} title="Cambio por convocado">
         <LogIn className="w-4 h-4" />
       </button>
       {sep}
@@ -643,7 +646,8 @@ function AppContent() {
       activeTool === 'draw' ||
       activeTool === 'opponent' ||
       activeTool === 'pen' ||
-      activeTool === 'swap'
+      activeTool === 'swap' ||
+      activeTool === 'replace'
     ) {
       setActiveTool('laser');
     }
@@ -771,12 +775,40 @@ function AppContent() {
         toast.error('Solo titulares en el campo');
         return;
       }
+      if (activeTool === 'replace') {
+        setSwapPendingId(null);
+        setSelectedPlayerId(id);
+        setRightBandVisible(true);
+        toast.message(`Cambio: ${shortPlayerName(p.name)} (${p.position})`);
+        return;
+      }
+      if (!swapPendingId) {
+        setSwapPendingId(id);
+        setSelectedPlayerId(id);
+        toast.message(`Ahora toca el segundo titular para intercambiar con ${shortPlayerName(p.name)}`);
+        return;
+      }
+      if (swapPendingId === id) {
+        setSwapPendingId(null);
+        toast('Intercambio cancelado');
+        return;
+      }
+      const aId = swapPendingId;
       setSwapPendingId(null);
       setSelectedPlayerId(id);
-      setRightBandVisible(true);
-      toast.message(`Cambio: ${shortPlayerName(p.name)} (${p.position})`);
+      setPlayers((ps) => {
+        const a = ps.find((x) => x.id === aId);
+        const b = ps.find((x) => x.id === id);
+        if (!a || !b) return ps;
+        return ps.map((pl) => {
+          if (pl.id === aId) return { ...pl, pitchX: b.pitchX, pitchY: b.pitchY, position: b.position };
+          if (pl.id === id) return { ...pl, pitchX: a.pitchX, pitchY: a.pitchY, position: a.position };
+          return pl;
+        });
+      });
+      toast.success('Posiciones intercambiadas');
     },
-    [players],
+    [activeTool, players, swapPendingId],
   );
 
   // Mark unsaved when data changes (after initial load)
@@ -1220,14 +1252,16 @@ function AppContent() {
       if (byPosition !== 0) return byPosition;
       return a.name.localeCompare(b.name, 'es');
     });
-    const cols = 3;
-    const panelWidth = Math.max(390, Math.round(pitchImg.naturalWidth * 0.34));
-    const panelPadding = 28;
-    const gap = 14;
+    const cols = sortedCalledUp.length <= 8 ? 2 : 3;
+    const panelWidth = Math.max(760, Math.round(pitchImg.naturalWidth * 0.52));
+    const panelPadding = 36;
+    const gap = 24;
     const cardWidth = (panelWidth - panelPadding * 2 - gap * (cols - 1)) / cols;
-    const cardHeight = 132;
     const rows = Math.max(1, Math.ceil(sortedCalledUp.length / cols));
-    const panelNeededHeight = 150 + rows * cardHeight + (rows - 1) * gap + 36;
+    const headerHeight = 180;
+    const availableCardHeight = pitchImg.naturalHeight - headerHeight - panelPadding * 2 - Math.max(0, rows - 1) * gap;
+    const cardHeight = Math.max(270, Math.min(310, availableCardHeight / rows));
+    const panelNeededHeight = headerHeight + rows * cardHeight + (rows - 1) * gap + panelPadding * 2;
     const canvas = document.createElement('canvas');
     canvas.width = pitchImg.naturalWidth + panelWidth;
     canvas.height = Math.max(pitchImg.naturalHeight, panelNeededHeight);
@@ -1239,42 +1273,71 @@ function AppContent() {
     ctx.drawImage(pitchImg, 0, 0);
 
     const panelX = pitchImg.naturalWidth;
-    ctx.fillStyle = '#f8fafc';
+    const panelGradient = ctx.createLinearGradient(panelX, 0, panelX + panelWidth, canvas.height);
+    panelGradient.addColorStop(0, '#f8fafc');
+    panelGradient.addColorStop(0.6, '#eef7ef');
+    panelGradient.addColorStop(1, '#e4efe6');
+    ctx.fillStyle = panelGradient;
     ctx.fillRect(panelX, 0, panelWidth, canvas.height);
-    ctx.strokeStyle = '#d9e2ec';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(panelX + 1, 0);
-    ctx.lineTo(panelX + 1, canvas.height);
-    ctx.stroke();
 
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '900 28px sans-serif';
-    ctx.fillText('CONVOCADOS', panelX + panelPadding, 46);
-    ctx.fillStyle = '#64748b';
-    ctx.font = '800 15px sans-serif';
-    ctx.fillText(`${currentFormation} · ${sortedCalledUp.length} jugadores`, panelX + panelPadding, 74);
-    ctx.fillText(`DT: ${coachName || 'Intercolina'}`, panelX + panelPadding, 98);
+    const headerX = panelX + panelPadding;
+    const headerY = panelPadding;
+    const headerW = panelWidth - panelPadding * 2;
+    const headerH = 116;
+    const headerGradient = ctx.createLinearGradient(headerX, headerY, headerX + headerW, headerY + headerH);
+    headerGradient.addColorStop(0, '#052e16');
+    headerGradient.addColorStop(0.55, '#14532d');
+    headerGradient.addColorStop(1, '#16a34a');
+    ctx.fillStyle = headerGradient;
+    drawRoundedRect(ctx, headerX, headerY, headerW, headerH, 34);
+    ctx.fill();
+
+    ctx.fillStyle = '#dcfce7';
+    ctx.font = '900 20px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('INTERCOLINA', headerX + 30, headerY + 36);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 46px sans-serif';
+    ctx.fillText('CONVOCADOS', headerX + 30, headerY + 82);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    drawRoundedRect(ctx, headerX + headerW - 168, headerY + 26, 132, 58, 29);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 31px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(sortedCalledUp.length), headerX + headerW - 102, headerY + 64);
+    ctx.font = '900 12px sans-serif';
+    ctx.fillText('JUGADORES', headerX + headerW - 102, headerY + 82);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#14532d';
+    ctx.font = '900 22px sans-serif';
+    ctx.fillText(`${currentFormation} · DT ${coachName || 'Intercolina'}`, headerX + 30, headerY + 150);
 
     const photoResults = await Promise.allSettled(sortedCalledUp.map((p) => (p.photoUrl ? loadImage(proxiedPhotoUrl(p.photoUrl)) : Promise.reject())));
-    let y = 126;
+    let y = headerHeight;
     sortedCalledUp.forEach((p, index) => {
       const col = index % cols;
       const row = Math.floor(index / cols);
       const x = panelX + panelPadding + col * (cardWidth + gap);
-      y = 126 + row * (cardHeight + gap);
+      y = headerHeight + row * (cardHeight + gap);
       const photo = photoResults[index].status === 'fulfilled' ? photoResults[index].value : null;
 
-      ctx.fillStyle = '#ffffff';
-      drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.93)';
+      drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 28);
       ctx.fill();
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2;
       ctx.stroke();
 
       const cx = x + cardWidth / 2;
-      const cy = y + 42;
-      const r = 30;
+      const cy = y + 74;
+      const r = Math.min(66, Math.max(50, cardWidth * 0.18));
+      ctx.fillStyle = '#16a34a';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+      ctx.fill();
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -1285,26 +1348,35 @@ function AppContent() {
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
         ctx.fillStyle = '#f8fafc';
-        ctx.font = '900 18px sans-serif';
+        ctx.font = '900 32px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(p.number), cx, cy);
       }
       ctx.restore();
 
-      ctx.fillStyle = '#16a34a';
-      drawRoundedRect(ctx, x + cardWidth / 2 - 22, y + 70, 44, 20, 10);
+      ctx.fillStyle = '#020617';
+      drawRoundedRect(ctx, x + cardWidth - 76, y + 22, 54, 42, 21);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 12px sans-serif';
+      ctx.font = '900 21px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(p.position, x + cardWidth / 2, y + 84);
+      ctx.fillText(String(p.number), x + cardWidth - 49, y + 50);
+
+      ctx.fillStyle = '#16a34a';
+      drawRoundedRect(ctx, x + cardWidth / 2 - 45, y + 134, 90, 34, 17);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(p.position, x + cardWidth / 2, y + 158);
 
       ctx.fillStyle = '#111827';
-      ctx.font = '800 12px sans-serif';
+      ctx.font = '900 22px sans-serif';
       ctx.textAlign = 'left';
-      drawClampedText(ctx, shortPlayerName(p.name), x + 8, y + 108, cardWidth - 16, 14, 2);
+      drawClampedText(ctx, p.name, x + 22, y + 202, cardWidth - 44, 27, 2);
     });
 
     ctx.textAlign = 'left';
@@ -1627,6 +1699,10 @@ function AppContent() {
                       : activeTool === 'pen'
                         ? 'Lápiz: trazos que se guardan en la planilla'
                         : activeTool === 'swap'
+                        ? swapPendingId
+                          ? 'Toca otro titular para intercambiar posiciones'
+                          : 'Toca un titular y luego otro para intercambiar posiciones'
+                        : activeTool === 'replace'
                         ? 'Toca un titular para ver convocados recomendados'
                         : 'Arrastra jugadores'}
               </p>
