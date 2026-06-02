@@ -1252,15 +1252,16 @@ function AppContent() {
       if (byPosition !== 0) return byPosition;
       return a.name.localeCompare(b.name, 'es');
     });
-    const cols = sortedCalledUp.length <= 8 ? 2 : 3;
-    const panelWidth = Math.max(760, Math.round(pitchImg.naturalWidth * 0.52));
-    const panelPadding = 36;
-    const gap = 24;
+    const cols = sortedCalledUp.length > 8 ? 2 : 1;
+    const panelWidth = Math.max(cols === 1 ? 520 : 680, Math.round(pitchImg.naturalWidth * (cols === 1 ? 0.34 : 0.44)));
+    const panelPadding = 32;
+    const gap = 18;
     const cardWidth = (panelWidth - panelPadding * 2 - gap * (cols - 1)) / cols;
     const rows = Math.max(1, Math.ceil(sortedCalledUp.length / cols));
-    const headerHeight = 180;
-    const availableCardHeight = pitchImg.naturalHeight - headerHeight - panelPadding * 2 - Math.max(0, rows - 1) * gap;
-    const cardHeight = Math.max(270, Math.min(310, availableCardHeight / rows));
+    const headerHeight = 206;
+    const footerHeight = 54;
+    const availableCardHeight = pitchImg.naturalHeight - headerHeight - footerHeight - panelPadding * 2 - Math.max(0, rows - 1) * gap;
+    const cardHeight = Math.max(104, Math.min(132, availableCardHeight / rows));
     const panelNeededHeight = headerHeight + rows * cardHeight + (rows - 1) * gap + panelPadding * 2;
     const canvas = document.createElement('canvas');
     canvas.width = pitchImg.naturalWidth + panelWidth;
@@ -1283,7 +1284,7 @@ function AppContent() {
     const headerX = panelX + panelPadding;
     const headerY = panelPadding;
     const headerW = panelWidth - panelPadding * 2;
-    const headerH = 116;
+    const headerH = 106;
     const headerGradient = ctx.createLinearGradient(headerX, headerY, headerX + headerW, headerY + headerH);
     headerGradient.addColorStop(0, '#052e16');
     headerGradient.addColorStop(0.55, '#14532d');
@@ -1293,27 +1294,27 @@ function AppContent() {
     ctx.fill();
 
     ctx.fillStyle = '#dcfce7';
-    ctx.font = '900 20px sans-serif';
+    ctx.font = '900 18px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('INTERCOLINA', headerX + 30, headerY + 36);
+    ctx.fillText('INTERCOLINA', headerX + 28, headerY + 34);
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 46px sans-serif';
-    ctx.fillText('CONVOCADOS', headerX + 30, headerY + 82);
+    ctx.font = '900 40px sans-serif';
+    ctx.fillText('CONVOCADOS', headerX + 28, headerY + 78);
 
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    drawRoundedRect(ctx, headerX + headerW - 168, headerY + 26, 132, 58, 29);
+    drawRoundedRect(ctx, headerX + headerW - 142, headerY + 24, 108, 54, 27);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 31px sans-serif';
+    ctx.font = '900 28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(sortedCalledUp.length), headerX + headerW - 102, headerY + 64);
-    ctx.font = '900 12px sans-serif';
-    ctx.fillText('JUGADORES', headerX + headerW - 102, headerY + 82);
+    ctx.fillText(String(sortedCalledUp.length), headerX + headerW - 88, headerY + 60);
+    ctx.font = '900 11px sans-serif';
+    ctx.fillText('JUGADORES', headerX + headerW - 88, headerY + 78);
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#14532d';
-    ctx.font = '900 22px sans-serif';
-    ctx.fillText(`${currentFormation} · DT ${coachName || 'Intercolina'}`, headerX + 30, headerY + 150);
+    ctx.font = '900 19px sans-serif';
+    ctx.fillText(`${currentFormation} · DT ${coachName || 'Intercolina'}`, headerX + 28, headerY + 142);
 
     const photoResults = await Promise.allSettled(sortedCalledUp.map((p) => (p.photoUrl ? loadImage(proxiedPhotoUrl(p.photoUrl)) : Promise.reject())));
     let y = headerHeight;
@@ -1324,59 +1325,64 @@ function AppContent() {
       y = headerHeight + row * (cardHeight + gap);
       const photo = photoResults[index].status === 'fulfilled' ? photoResults[index].value : null;
 
-      ctx.fillStyle = 'rgba(255,255,255,0.93)';
-      drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 28);
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,23,42,0.12)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 10;
+      ctx.fillStyle = 'rgba(255,255,255,0.94)';
+      drawRoundedRect(ctx, x, y, cardWidth, cardHeight, 24);
       ctx.fill();
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 2;
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(148,163,184,0.38)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const cx = x + cardWidth / 2;
-      const cy = y + 74;
-      const r = Math.min(66, Math.max(50, cardWidth * 0.18));
-      ctx.fillStyle = '#16a34a';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
-      ctx.fill();
+      const photoSize = Math.min(cardHeight - 24, cols === 1 ? 88 : 72);
+      const photoX = x + 18;
+      const photoY = y + (cardHeight - photoSize) / 2;
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      drawRoundedRect(ctx, photoX, photoY, photoSize, photoSize, 20);
       ctx.clip();
       if (photo) {
-        drawCoverImage(ctx, photo, cx - r, cy - r, r * 2, r * 2);
+        drawCoverImage(ctx, photo, photoX, photoY, photoSize, photoSize);
       } else {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        const fallback = ctx.createLinearGradient(photoX, photoY, photoX + photoSize, photoY + photoSize);
+        fallback.addColorStop(0, '#1e293b');
+        fallback.addColorStop(1, '#020617');
+        ctx.fillStyle = fallback;
+        ctx.fillRect(photoX, photoY, photoSize, photoSize);
         ctx.fillStyle = '#f8fafc';
-        ctx.font = '900 32px sans-serif';
+        ctx.font = '900 28px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(p.number), cx, cy);
+        ctx.fillText(String(p.number), photoX + photoSize / 2, photoY + photoSize / 2);
       }
       ctx.restore();
 
       ctx.fillStyle = '#020617';
-      drawRoundedRect(ctx, x + cardWidth - 76, y + 22, 54, 42, 21);
+      drawRoundedRect(ctx, x + cardWidth - 70, y + 18, 46, 36, 18);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 21px sans-serif';
+      ctx.font = '900 18px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(String(p.number), x + cardWidth - 49, y + 50);
+      ctx.fillText(String(p.number), x + cardWidth - 47, y + 42);
 
       ctx.fillStyle = '#16a34a';
-      drawRoundedRect(ctx, x + cardWidth / 2 - 45, y + 134, 90, 34, 17);
+      const textX = photoX + photoSize + 20;
+      const textW = cardWidth - (textX - x) - 86;
+      drawRoundedRect(ctx, textX, y + 28, 72, 30, 15);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 20px sans-serif';
+      ctx.font = '900 17px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(p.position, x + cardWidth / 2, y + 158);
+      ctx.fillText(p.position, textX + 36, y + 49);
 
-      ctx.fillStyle = '#111827';
-      ctx.font = '900 22px sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 21px sans-serif';
       ctx.textAlign = 'left';
-      drawClampedText(ctx, p.name, x + 22, y + 202, cardWidth - 44, 27, 2);
+      drawClampedText(ctx, p.name, textX, y + 88, textW, 25, 2);
     });
 
     ctx.textAlign = 'left';
