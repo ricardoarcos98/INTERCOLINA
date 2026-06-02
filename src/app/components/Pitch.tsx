@@ -637,33 +637,6 @@ const positionBorderColor = (pos: Position, selected: boolean, swapHi: boolean) 
   return positionTokenBorderClasses(pos);
 };
 
-const futStatsForPlayer = (player: Player) => {
-  const seed = player.name.length * 5 + player.number * 7 + player.position.charCodeAt(0);
-  const boost = (n: number) => Math.min(96, Math.max(48, n + (seed % 9)));
-  const profiles: Record<Position, { ovr: number; pac: number; sho: number; pas: number; dri: number; def: number; phy: number }> = {
-    ARQ: { ovr: 78, pac: 42, sho: 38, pas: 64, dri: 54, def: 86, phy: 80 },
-    DFC: { ovr: 76, pac: 62, sho: 45, pas: 63, dri: 58, def: 83, phy: 82 },
-    LI: { ovr: 75, pac: 78, sho: 54, pas: 68, dri: 70, def: 74, phy: 72 },
-    LD: { ovr: 75, pac: 78, sho: 54, pas: 68, dri: 70, def: 74, phy: 72 },
-    MCD: { ovr: 77, pac: 68, sho: 58, pas: 78, dri: 72, def: 80, phy: 76 },
-    MC: { ovr: 78, pac: 70, sho: 66, pas: 82, dri: 78, def: 68, phy: 72 },
-    MCO: { ovr: 79, pac: 74, sho: 74, pas: 84, dri: 84, def: 50, phy: 66 },
-    EI: { ovr: 78, pac: 84, sho: 76, pas: 74, dri: 86, def: 42, phy: 64 },
-    ED: { ovr: 78, pac: 84, sho: 76, pas: 74, dri: 86, def: 42, phy: 64 },
-    DC: { ovr: 79, pac: 76, sho: 84, pas: 66, dri: 78, def: 44, phy: 78 },
-  };
-  const base = profiles[player.position];
-  return {
-    ovr: boost(base.ovr),
-    pac: boost(base.pac),
-    sho: boost(base.sho),
-    pas: boost(base.pas),
-    dri: boost(base.dri),
-    def: boost(base.def),
-    phy: boost(base.phy),
-  };
-};
-
 const PlayerToken: React.FC<{
   player: Player;
   pitchRef: React.RefObject<HTMLDivElement>;
@@ -695,7 +668,6 @@ const PlayerToken: React.FC<{
 
   const pointerClass = laserPassthrough ? 'pointer-events-none' : readOnly ? 'pointer-events-none' : 'pointer-events-auto';
   const sideArrow = positionSideArrow(player.position);
-  const fut = futStatsForPlayer(player);
   const shortName = player.name.split(/\s+/).slice(0, 2).join(' ');
 
   return (
@@ -725,15 +697,12 @@ const PlayerToken: React.FC<{
 
       <div
         data-clean-capture
-        className={`relative h-[118px] w-[76px] shadow-[0_16px_26px_rgba(0,0,0,0.42)] transition-all duration-200 md:h-[150px] md:w-[96px] ${
-          isSelected ? 'scale-110 ring-2 ring-yellow-300' : ''
-        } ${swapHighlight ? 'ring-2 ring-amber-200' : ''}`}
-        style={{ clipPath: 'polygon(18% 0%, 82% 0%, 100% 12%, 100% 82%, 50% 100%, 0% 82%, 0% 12%)' }}
+        className={`relative flex flex-col items-center transition-all duration-200 ${isSelected ? 'scale-110' : ''}`}
       >
         {isCaptain && (
           <span
             data-clean-capture
-            className="absolute -left-2 -top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black/50 bg-amber-400 text-[8px] font-black text-black shadow-md md:h-6 md:w-6 md:text-[9px]"
+            className="absolute -left-1.5 -top-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black/50 bg-amber-400 text-[8px] font-black text-black shadow-md md:h-6 md:w-6 md:text-[9px]"
             title="Capitán"
           >
             C
@@ -742,7 +711,7 @@ const PlayerToken: React.FC<{
         {sideArrow && (
           <div
             data-clean-capture
-            className="pointer-events-none absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-right-2.5 md:-top-2.5 md:h-7 md:w-7"
+            className="pointer-events-none absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-right-2.5 md:-top-2.5 md:h-7 md:w-7"
             title={sideArrow === 'left' ? 'Banda izquierda' : 'Banda derecha'}
           >
             {sideArrow === 'left' ? (
@@ -752,22 +721,11 @@ const PlayerToken: React.FC<{
             )}
           </div>
         )}
-        <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-[#fff4b0] via-[#d6aa38] to-[#7a4b0b] p-1.5 md:p-2">
-          <div className="absolute inset-0 opacity-45 [background:radial-gradient(circle_at_42%_6%,rgba(255,255,255,.9),transparent_31%),linear-gradient(120deg,transparent_10%,rgba(255,255,255,.45)_11%,transparent_13%,transparent_54%,rgba(255,255,255,.28)_55%,transparent_57%),repeating-linear-gradient(75deg,rgba(80,48,5,.18)_0_1px,transparent_1px_8px)]" />
-          <div className="absolute -right-5 top-4 h-20 w-16 rotate-12 border-l-2 border-t-2 border-amber-950/35 opacity-50 md:-right-6 md:h-24 md:w-20" />
-          <div className="relative z-20 flex items-start justify-between">
-            <div className="text-center leading-none text-[#3f2b0b] drop-shadow-[0_1px_0_rgba(255,255,255,.35)]">
-              <div className="font-display text-[17px] font-black tracking-tighter md:text-[23px]">{fut.ovr}</div>
-              <div className="mt-0.5 text-[8px] font-black md:text-[10px]">{player.position}</div>
-              <div className="mx-auto mt-1 h-px w-7 bg-[#3f2b0b]/45" />
-            </div>
-            <div className="rounded-full bg-black/75 px-1.5 py-0.5 text-[8px] font-black text-white shadow-sm md:text-[10px]">
-              #{player.number}
-            </div>
-          </div>
+        <div className="relative">
+          <div className={`absolute inset-[-5px] rounded-full bg-gradient-to-br from-white/80 via-white/20 to-black/20 blur-[1px] ${swapHighlight ? 'from-amber-200 via-amber-400 to-amber-700' : ''}`} />
           <div
             data-clean-capture
-            className={`pitch-token-face absolute right-1 top-[25px] z-10 flex h-[44px] w-[48px] items-center justify-center overflow-hidden rounded-t-[1.15rem] rounded-b-md border-2 border-white/70 bg-slate-800 shadow-[0_8px_16px_rgba(0,0,0,.32)] md:right-1.5 md:top-[33px] md:h-[60px] md:w-[64px] ${positionBorderColor(player.position, false, false)}`}
+            className={`pitch-token-face relative z-10 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-slate-900 shadow-[0_14px_24px_rgba(0,0,0,.36)] transition-all duration-200 md:h-[78px] md:w-[78px] ${positionBorderColor(player.position, isSelected, swapHighlight)}`}
           >
             {player.photoUrl ? (
               <img
@@ -790,17 +748,30 @@ const PlayerToken: React.FC<{
               </div>
             )}
           </div>
-          <div className="absolute left-1.5 right-1.5 top-[68px] z-20 border-y border-[#5b3b0e]/25 bg-gradient-to-r from-[#fff5b5] via-[#f6de7c] to-[#e7c763] px-1 py-0.5 text-center text-[8px] font-black uppercase leading-tight text-[#3f2b0b] shadow-[0_1px_0_rgba(255,255,255,.55)] md:left-2 md:right-2 md:top-[92px] md:text-[10px]">
-            <span className="block truncate">{shortName}</span>
+          <div
+            data-clean-capture
+            className="pointer-events-none absolute -bottom-1.5 -left-3 z-20 flex h-6 min-h-6 min-w-7 max-w-[3.1rem] items-center justify-center rounded-full border-2 border-white/70 bg-black/90 px-1 shadow-md md:-bottom-2 md:-left-3.5 md:h-7 md:max-w-[3.4rem]"
+            title={`Posición: ${player.position}`}
+          >
+            <span className="whitespace-nowrap text-[8px] font-black leading-none tracking-tighter text-white md:text-[10px]">
+              {player.position}
+            </span>
           </div>
-          <div className="absolute bottom-3 left-2 right-2 z-20 grid grid-cols-2 gap-x-1 text-[6px] font-black leading-[0.72rem] text-[#4a3210] md:bottom-4 md:text-[8px] md:leading-[0.88rem]">
-            <span><b>{fut.pac}</b> PAC</span>
-            <span><b>{fut.dri}</b> DRI</span>
-            <span><b>{fut.sho}</b> SHO</span>
-            <span><b>{fut.def}</b> DEF</span>
-            <span><b>{fut.pas}</b> PAS</span>
-            <span><b>{fut.phy}</b> PHY</span>
+          <div
+            data-clean-capture
+            className="pointer-events-none absolute -bottom-1.5 -right-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-bottom-2 md:-right-3.5 md:h-7 md:w-7"
+          >
+            <span className="text-[10px] font-black text-white md:text-xs">{player.number}</span>
           </div>
+        </div>
+        <div
+          data-clean-capture
+          title={player.name}
+          className={`mt-2 max-w-[min(100vw,210px)] truncate rounded-xl px-2.5 py-1 text-center text-[9px] font-black leading-tight shadow-[0_8px_18px_rgba(0,0,0,.24)] backdrop-blur-md md:text-[11px] md:leading-tight ${
+            isSelected ? 'bg-yellow-400 text-black' : 'bg-black/80 text-white ring-1 ring-white/15'
+          } pointer-events-none`}
+        >
+          {shortName}
         </div>
       </div>
     </motion.div>
