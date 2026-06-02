@@ -2,7 +2,6 @@ import React, { useState, useCallback, useRef } from 'react';
 import { motion, useMotionValue } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Player, TacticalArrow, OpponentMarker, LaserStroke, Position } from '../types';
-import { positionTokenBorderClasses } from '../positionStyles';
 import { useTheme } from './ThemeContext';
 import { projectId } from '/utils/supabase/info';
 
@@ -630,13 +629,6 @@ const positionSideArrow = (pos: Position): 'left' | 'right' | null => {
   return null;
 };
 
-/** Solo borde (sin sombra ni ring): html-to-image rasteriza mal box-shadow en PNG. */
-const positionBorderColor = (pos: Position, selected: boolean, swapHi: boolean) => {
-  if (swapHi) return 'border-amber-300 border-[3px] md:border-[3.5px]';
-  if (selected) return 'border-yellow-400 border-[3px] md:border-[3.5px]';
-  return positionTokenBorderClasses(pos);
-};
-
 const PlayerToken: React.FC<{
   player: Player;
   pitchRef: React.RefObject<HTMLDivElement>;
@@ -711,7 +703,7 @@ const PlayerToken: React.FC<{
         {sideArrow && (
           <div
             data-clean-capture
-            className="pointer-events-none absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-right-2.5 md:-top-2.5 md:h-7 md:w-7"
+            className="pointer-events-none absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/70 bg-slate-950/92 shadow-md md:-right-2.5 md:-top-2.5 md:h-7 md:w-7"
             title={sideArrow === 'left' ? 'Banda izquierda' : 'Banda derecha'}
           >
             {sideArrow === 'left' ? (
@@ -721,11 +713,15 @@ const PlayerToken: React.FC<{
             )}
           </div>
         )}
-        <div className="relative">
-          <div className={`absolute inset-[-5px] rounded-full bg-gradient-to-br from-white/80 via-white/20 to-black/20 blur-[1px] ${swapHighlight ? 'from-amber-200 via-amber-400 to-amber-700' : ''}`} />
+        <div
+          data-clean-capture
+          className={`relative w-[72px] rounded-[1.15rem] shadow-[0_16px_28px_rgba(0,0,0,.34)] transition-all duration-200 md:w-[86px] md:rounded-[1.35rem] ${
+            isSelected ? 'ring-2 ring-yellow-300/85' : swapHighlight ? 'ring-2 ring-amber-200/85' : ''
+          }`}
+        >
           <div
             data-clean-capture
-            className={`pitch-token-face relative z-10 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-slate-900 shadow-[0_14px_24px_rgba(0,0,0,.36)] transition-all duration-200 md:h-[78px] md:w-[78px] ${positionBorderColor(player.position, isSelected, swapHighlight)}`}
+            className="pitch-token-face relative z-10 flex h-[64px] w-full items-center justify-center overflow-hidden rounded-[1.15rem] bg-slate-900 shadow-[0_12px_24px_rgba(15,23,42,.34)] transition-all duration-200 md:h-[78px] md:rounded-[1.35rem]"
           >
             {player.photoUrl ? (
               <img
@@ -748,21 +744,21 @@ const PlayerToken: React.FC<{
               </div>
             )}
           </div>
-          <div
+          <span
             data-clean-capture
-            className="pointer-events-none absolute -bottom-1.5 -left-3 z-20 flex h-6 min-h-6 min-w-7 max-w-[3.1rem] items-center justify-center rounded-full border-2 border-white/70 bg-black/90 px-1 shadow-md md:-bottom-2 md:-left-3.5 md:h-7 md:max-w-[3.4rem]"
+            className="pointer-events-none absolute -bottom-2 -left-2 z-20 flex h-6 min-h-6 min-w-7 max-w-[3.1rem] items-center justify-center rounded-full bg-slate-950/95 px-1 shadow-md ring-1 ring-white/10 md:-bottom-2.5 md:-left-2.5 md:h-7 md:max-w-[3.4rem]"
             title={`Posición: ${player.position}`}
           >
             <span className="whitespace-nowrap text-[8px] font-black leading-none tracking-tighter text-white md:text-[10px]">
               {player.position}
             </span>
-          </div>
-          <div
+          </span>
+          <span
             data-clean-capture
-            className="pointer-events-none absolute -bottom-1.5 -right-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-bottom-2 md:-right-3.5 md:h-7 md:w-7"
+            className="pointer-events-none absolute -bottom-2 -right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/95 shadow-md ring-1 ring-white/10 md:-bottom-2.5 md:-right-2.5 md:h-7 md:w-7"
           >
             <span className="text-[10px] font-black text-white md:text-xs">{player.number}</span>
-          </div>
+          </span>
         </div>
         <div
           data-clean-capture

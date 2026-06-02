@@ -266,7 +266,7 @@ function BenchPreview({
               >
                 <button type="button" onClick={() => onSelectPlayer(p.id)} className="flex w-full min-w-0 flex-col items-center gap-1" title={p.name}>
                   <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/50 bg-slate-800 text-[10px] font-black text-slate-100 shadow-[0_10px_22px_rgba(15,23,42,0.18)]">
-                    {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
+                    {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover object-top" draggable={false} /> : p.number}
                     {recommended && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-slate-900" />}
                   </span>
                   <span
@@ -1210,7 +1210,7 @@ function AppContent() {
       const sw = width / scale;
       const sh = height / scale;
       const sx = (img.naturalWidth - sw) / 2;
-      const sy = (img.naturalHeight - sh) / 2;
+      const sy = 0;
       ctx.drawImage(img, sx, sy, sw, sh, x, y, width, height);
     };
 
