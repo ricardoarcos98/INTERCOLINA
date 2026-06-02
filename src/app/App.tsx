@@ -195,8 +195,8 @@ function BenchPreview({
   compact = false,
 }: BenchPreviewProps) {
   const [editing, setEditing] = useState(false);
-  const panel = isDark ? 'border-white/10 bg-slate-900/55' : 'border-gray-200 bg-white/85';
-  const chip = isDark ? 'border-white/10 bg-slate-950/50 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-emerald-50';
+  const panel = isDark ? 'border-white/10 bg-slate-950/46' : 'border-white/80 bg-white/66';
+  const chip = isDark ? 'border-white/10 bg-white/[0.055] hover:bg-white/10' : 'border-white/80 bg-white/74 hover:bg-emerald-50/90';
   const source = [...(editing ? editablePlayers : players)].sort((a, b) => {
     const aRecommended = substitutionTargetPosition && a.position === substitutionTargetPosition ? 0 : 1;
     const bRecommended = substitutionTargetPosition && b.position === substitutionTargetPosition ? 0 : 1;
@@ -213,7 +213,7 @@ function BenchPreview({
     : 'Sin convocados. Pulsa el lápiz para elegirlos.';
 
   return (
-    <section className={`w-full rounded-lg border p-3 backdrop-blur-md ${panel}`}>
+    <section className={`glass-panel w-full rounded-[1.35rem] border p-3 ${panel}`}>
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className={`truncate text-[10px] font-black uppercase tracking-widest ${mutedClass}`}>Convocados</h3>
@@ -260,12 +260,12 @@ function BenchPreview({
             return (
               <div
                 key={p.id}
-                className={`min-w-0 rounded-xl border p-1.5 text-center transition-colors ${chip} ${
+                className={`min-w-0 rounded-[1.1rem] border p-1.5 text-center transition-all duration-200 ${chip} ${
                   selected ? 'ring-1 ring-amber-400/80' : recommended ? 'border-emerald-400/70 bg-emerald-500/10' : ''
                 }`}
               >
                 <button type="button" onClick={() => onSelectPlayer(p.id)} className="flex w-full min-w-0 flex-col items-center gap-1" title={p.name}>
-                  <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-700 bg-slate-800 text-[10px] font-black text-slate-100">
+                  <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/50 bg-slate-800 text-[10px] font-black text-slate-100 shadow-[0_10px_22px_rgba(15,23,42,0.18)]">
                     {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" draggable={false} /> : p.number}
                     {recommended && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-slate-900" />}
                   </span>
@@ -335,10 +335,10 @@ function MatchStaffBand({
   onClose,
 }: MatchStaffBandProps) {
   return (
-    <aside className={`flex h-full min-h-0 w-full flex-col border-l ${isDark ? 'border-white/10 bg-slate-900/80' : 'border-gray-200 bg-white/88'} backdrop-blur-md`}>
-      <div className={`flex items-center justify-between gap-2 border-b px-3 py-3 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+    <aside className={`glass-panel flex h-full min-h-0 w-full flex-col border-l ${isDark ? 'border-white/10 bg-slate-950/68' : 'border-white/80 bg-white/74'}`}>
+      <div className={`flex items-center justify-between gap-2 border-b px-4 py-4 ${isDark ? 'border-white/10' : 'border-emerald-950/10'}`}>
         <div className="min-w-0">
-          <h2 className="text-xs font-black uppercase tracking-widest text-emerald-500">Banca</h2>
+          <h2 className="font-display text-sm font-black uppercase tracking-[0.24em] text-emerald-500">Banca</h2>
           <p className={`truncate text-[10px] ${mutedClass}`}>DT y convocados</p>
         </div>
         {onClose && (
@@ -347,7 +347,7 @@ function MatchStaffBand({
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
         <div className="mb-3">
           <CoachCard photoUrl={coachPhotoUrl} name={coachName} isDark={isDark} size="compact" layout="row" />
         </div>
@@ -487,9 +487,9 @@ function TacticalToolbar({
   if (variant === 'dock') {
     return (
       <div
-        className={`hidden md:flex shrink-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-20 self-start sticky top-2 touch-manipulation ${
-          isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white/95 border-gray-200'
-        } shadow-lg backdrop-blur-sm ${lockFull ? 'opacity-50' : ''}`}
+        className={`glass-panel hidden md:flex shrink-0 flex-col items-center gap-1.5 rounded-[1.45rem] border p-1.5 z-20 self-start sticky top-3 touch-manipulation ${
+          isDark ? 'bg-slate-950/62 border-white/10' : 'bg-white/72 border-white/80'
+        } ${lockFull ? 'opacity-50' : ''}`}
         role="toolbar"
         aria-label="Toolkit del entrenador"
       >
@@ -501,9 +501,9 @@ function TacticalToolbar({
   if (variant === 'rail') {
     return (
       <div
-        className={`hidden md:flex absolute -left-12 md:-left-14 top-0 flex-col items-center gap-1 md:gap-1.5 p-1 md:p-1.5 rounded-xl border z-10 ${
-          isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/90 border-gray-200'
-        } backdrop-blur-sm ${lockFull ? 'opacity-50' : ''}`}
+        className={`glass-panel hidden md:flex absolute -left-14 top-2 flex-col items-center gap-1.5 rounded-[1.45rem] border p-1.5 z-10 ${
+          isDark ? 'bg-slate-950/58 border-white/10' : 'bg-white/70 border-white/80'
+        } ${lockFull ? 'opacity-50' : ''}`}
       >
         {tools}
       </div>
@@ -512,9 +512,9 @@ function TacticalToolbar({
 
   return (
     <div
-      className={`md:hidden w-full mb-2 flex flex-row flex-wrap items-center justify-center gap-1.5 p-2 rounded-xl border z-10 touch-manipulation ${
-        isDark ? 'bg-slate-900/85 border-white/10' : 'bg-white/95 border-gray-200'
-      } shadow-sm ${lockFull ? 'opacity-50' : ''}`}
+      className={`glass-panel md:hidden w-full mb-2 flex flex-row flex-wrap items-center justify-center gap-1.5 rounded-[1.45rem] border p-2 z-10 touch-manipulation ${
+        isDark ? 'bg-slate-950/58 border-white/10' : 'bg-white/72 border-white/80'
+      } ${lockFull ? 'opacity-50' : ''}`}
     >
       {tools}
     </div>
@@ -1403,9 +1403,15 @@ function AppContent() {
     toast.success('Descargada');
   };
 
-  const bg = isDark ? 'bg-slate-950 text-slate-100' : 'bg-gray-100 text-gray-900';
-  const btn = (active = false) => `p-2 rounded-lg transition-all border shrink-0 ${active ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : isDark ? 'bg-white/10 hover:bg-white/20 border-white/10 text-slate-300' : 'bg-white hover:bg-gray-200 border-gray-200 text-gray-600'}`;
-  const mut = isDark ? 'text-slate-400' : 'text-gray-500';
+  const bg = isDark ? 'text-slate-100' : 'text-slate-950';
+  const btn = (active = false) => `group inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-2xl border px-2.5 text-sm transition-all duration-200 ${
+    active
+      ? 'border-emerald-300 bg-emerald-500 text-white shadow-[0_14px_34px_rgba(16,185,129,0.36)] scale-[1.03]'
+      : isDark
+        ? 'border-white/10 bg-white/[0.08] text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-emerald-300/40 hover:bg-white/[0.14] hover:text-white'
+        : 'border-white/70 bg-white/76 text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-white hover:text-emerald-700'
+  }`;
+  const mut = isDark ? 'text-slate-400' : 'text-slate-500';
   const editLocked = !editUnlocked;
   /** Modo foco y césped siguen disponibles con el candado activo. */
   const pitchToolsLocked = editLocked && !focusMode;
@@ -1423,11 +1429,7 @@ function AppContent() {
   }));
 
   return (
-    <div className={`flex h-screen h-[100dvh] w-full overflow-hidden font-sans transition-colors duration-300 ${bg}`}
-      style={isDark ? {
-        backgroundImage: 'linear-gradient(to bottom right, rgba(2,6,23,0.92), rgba(15,23,42,0.92)), url("https://images.unsplash.com/photo-1590502178797-a7ed0833a02f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080")',
-        backgroundSize: 'cover', backgroundPosition: 'center',
-      } : {}}>
+    <div className={`intercolina-shell relative isolate flex h-screen h-[100dvh] w-full overflow-hidden transition-colors duration-300 ${bg}`}>
       <Toaster position="top-center" theme={isDark ? 'dark' : 'light'} />
       {!focusMode && (
         <>
@@ -1436,7 +1438,7 @@ function AppContent() {
               type="button"
               onClick={() => setLeftBandVisible(true)}
               disabled={editLocked}
-              className={`hidden lg:flex absolute left-3 top-3 z-30 ${btn()} text-emerald-400 ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className={`hidden lg:flex absolute left-4 top-4 z-30 ${btn()} text-emerald-500 ${editLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
               title={editLocked ? 'Desbloquea para usar laterales' : 'Mostrar banda izquierda'}
               aria-pressed={false}
             >
@@ -1447,7 +1449,7 @@ function AppContent() {
             <button
               type="button"
               onClick={() => setRightBandVisible(true)}
-              className={`hidden lg:flex absolute right-3 top-3 z-30 ${btn()} text-emerald-400`}
+              className={`hidden lg:flex absolute right-4 top-4 z-30 ${btn()} text-emerald-500`}
               title="Mostrar banca y convocados"
               aria-pressed={false}
             >
@@ -1673,8 +1675,10 @@ function AppContent() {
       >
         {/* Header */}
         {!focusMode && (
-        <header className="w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] flex justify-between items-center mb-2 md:mb-3">
-          <div className="flex items-center gap-3">
+        <header className={`glass-panel mb-3 flex w-full max-w-[560px] items-center justify-between gap-3 rounded-[1.6rem] border px-3 py-3 max-sm:flex-col max-sm:items-stretch xl:max-w-[720px] 2xl:max-w-[820px] ${
+          isDark ? 'border-white/10 bg-slate-950/52' : 'border-white/80 bg-white/68'
+        }`}>
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -1683,32 +1687,43 @@ function AppContent() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="text-xl md:text-3xl font-black tracking-tighter drop-shadow-md">
-                PIZARRA<span className="text-emerald-500">TACTICA</span>
-              </h1>
-              <p className={`text-[10px] md:text-xs font-medium ${mut} hidden sm:block`}>
-                {editLocked
-                  ? 'Edición bloqueada — PIN en el candado (modo foco y césped siempre disponibles)'
-                  : activeTool === 'draw'
-                  ? 'Dibuja flechas'
-                  : activeTool === 'opponent'
-                    ? 'Toca para colocar rival'
-                    : activeTool === 'laser'
-                      ? 'Láser: se desvanece al soltar (como Excalidraw)'
-                      : activeTool === 'pen'
-                        ? 'Lápiz: trazos que se guardan en la planilla'
-                        : activeTool === 'swap'
-                        ? swapPendingId
-                          ? 'Toca otro titular para intercambiar posiciones'
-                          : 'Toca un titular y luego otro para intercambiar posiciones'
-                        : activeTool === 'replace'
-                        ? 'Toca un titular para ver convocados recomendados'
-                        : 'Arrastra jugadores'}
-              </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="hidden h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.85)] sm:inline-flex" />
+                <h1 className="font-display truncate text-xl font-black tracking-[-0.06em] md:text-3xl">
+                  PIZARRA<span className="text-emerald-500">TACTICA</span>
+                </h1>
+              </div>
+              <div className="mt-1 flex min-w-0 items-center gap-2">
+                <span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-black sm:inline-flex ${isDark ? 'bg-emerald-400/12 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+                  {currentFormation}
+                </span>
+                <span className={`hidden rounded-full px-2 py-0.5 text-[10px] font-black md:inline-flex ${isDark ? 'bg-white/8 text-slate-300' : 'bg-slate-900/5 text-slate-600'}`}>
+                  {pitchPlayers.length}/{maxPlayersOnPitch}
+                </span>
+                <p className={`truncate text-[10px] font-semibold md:text-xs ${mut} hidden sm:block`}>
+                  {editLocked
+                    ? 'Edición bloqueada · PIN en candado'
+                    : activeTool === 'draw'
+                    ? 'Dibuja flechas tácticas'
+                    : activeTool === 'opponent'
+                      ? 'Toca para colocar rival'
+                      : activeTool === 'laser'
+                        ? 'Láser efímero para explicar jugadas'
+                        : activeTool === 'pen'
+                          ? 'Lápiz fijo en la planilla'
+                          : activeTool === 'swap'
+                          ? swapPendingId
+                            ? 'Toca otro titular para intercambiar'
+                            : 'Toca dos titulares para intercambiar'
+                          : activeTool === 'replace'
+                          ? 'Toca un titular y revisa convocados'
+                          : 'Arrastra jugadores'}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-1 md:gap-1.5">
+          <div className="flex max-w-[48%] flex-wrap justify-end gap-1 max-sm:max-w-none max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:pb-0.5 md:max-w-none md:gap-1.5">
             {editLocked ? (
               <button type="button" onClick={() => setPinModalOpen(true)} className={`${btn()} border-amber-500/50 text-amber-400`} title="Desbloquear edición (PIN)">
                 <Lock className="w-4 h-4" />
@@ -1790,9 +1805,9 @@ function AppContent() {
         {!focusMode ? (
         <>
         {/* Cancha centrada: el apoyo vive en bandas laterales desplegables. */}
-        <div className="w-full max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,680px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,780px)_minmax(0,1fr)] gap-3 items-start">
+        <div className="w-full max-w-[1180px] xl:max-w-[1420px] 2xl:max-w-[1660px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,700px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,800px)_minmax(0,1fr)] gap-4 items-start">
           <div className="hidden lg:block min-w-0" aria-hidden />
-          <div className="w-full max-w-[520px] xl:max-w-[640px] 2xl:max-w-[760px] relative min-w-0 justify-self-center">
+          <div className="w-full max-w-[540px] xl:max-w-[680px] 2xl:max-w-[780px] relative min-w-0 justify-self-center">
           <TacticalToolbar
             variant="mobile"
             btn={btn}
@@ -1826,7 +1841,9 @@ function AppContent() {
             toolLock={tacticalToolLock}
           />
 
-          <div className="w-full relative">
+          <div className={`pitch-stage-glow relative w-full rounded-[1.6rem] p-1.5 ${
+            isDark ? 'bg-slate-950/42' : 'bg-white/58'
+          }`}>
             <Pitch players={pitchPlayers} onPlayerMove={handlePlayerMove}
               selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId}
               arrows={arrows} onAddArrow={a => setArrows(p => [...p, a])}

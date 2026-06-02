@@ -168,11 +168,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const sidebarBg = isDark ? 'bg-slate-900/95 text-white border-white/10' : 'bg-white/95 text-gray-900 border-gray-200';
-  const cardBg = isDark ? 'bg-slate-800' : 'bg-gray-100';
-  const inputBg = isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+  const sidebarBg = isDark ? 'bg-slate-950/68 text-white border-white/10' : 'bg-white/72 text-slate-950 border-white/80';
+  const cardBg = isDark ? 'bg-white/[0.06] border-white/10' : 'bg-white/72 border-white/80';
+  const inputBg = isDark ? 'bg-slate-950/70 border-white/10 text-white' : 'bg-white/82 border-slate-200 text-slate-950';
   const mutedText = isDark ? 'text-slate-400' : 'text-gray-500';
-  const hoverCard = isDark ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-gray-100 hover:border-gray-300';
+  const hoverCard = isDark ? 'hover:bg-white/[0.08] hover:border-emerald-300/30' : 'hover:bg-white hover:border-emerald-200';
 
   const content = (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -195,9 +195,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {savedTacticsPanel ? <div className="relative z-[30]">{savedTacticsPanel}</div> : null}
       {formationsPanel}
       {calledUpPanel ? <div className="relative z-[30]">{calledUpPanel}</div> : null}
-      <div className={`p-4 md:p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-900/50' : 'border-gray-200 bg-gray-50/80'}`}>
+      <div className={`border-b px-4 py-4 md:px-5 flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-950/42' : 'border-emerald-950/10 bg-white/42'}`}>
         <div>
-          <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-emerald-500">Plantilla</h2>
+          <h2 className="font-display text-lg md:text-xl font-black uppercase tracking-[0.18em] text-emerald-500">Plantilla</h2>
           <p className={`text-xs mt-1 ${mutedText}`}>
             {pitchPlayers.length}/{maxOnPitch} en cancha &middot; {benchPlayers.length} suplentes
             {sentOffCount > 0 ? ` · ${sentOffCount} exp.` : ''}
@@ -205,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button type="button" onClick={() => setIsAdding(!isAdding)}
-            className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+            className="rounded-2xl bg-emerald-500 p-2 text-white shadow-[0_14px_30px_rgba(16,185,129,0.34)] transition-all hover:-translate-y-0.5 hover:bg-emerald-600">
             {isAdding ? <User className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
           </button>
           <button type="button" onClick={onClose} className="md:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20">
@@ -309,7 +309,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {isAdding && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className={`${cardBg} rounded-lg p-4 border border-emerald-500/30`}>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className={`${cardBg} rounded-[1.15rem] p-4 border border-emerald-500/30`}>
             <h3 className="text-sm font-bold mb-3 text-emerald-400">Agregar Jugador</h3>
             <form onSubmit={handleAddNew} className="space-y-3">
               <input name="name" placeholder="Nombre del jugador" required className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 ${inputBg}`} />
@@ -325,8 +325,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {selectedPlayer && !isAdding && !editOpen && (
-          <div className={`${cardBg} rounded-xl p-3 border border-white/10 flex items-center gap-3`}>
-            <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-800 border border-slate-600 shrink-0">
+          <div className={`${cardBg} rounded-[1.15rem] p-3 border flex items-center gap-3`}>
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-white/20 shrink-0 shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
               {selectedPlayer.photoUrl ? <img src={selectedPlayer.photoUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-500 font-black">{selectedPlayer.number}</div>}
             </div>
             <div className="flex-1 min-w-0">
@@ -396,7 +396,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadPhoto(f); }} />
                 <div className="flex-1 flex items-center">
                   <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isDark ? 'border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-400 text-yellow-600 hover:bg-yellow-5'} ${uploading ? 'opacity-50' : ''}`}>
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isDark ? 'border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-400 text-yellow-600 hover:bg-yellow-50'} ${uploading ? 'opacity-50' : ''}`}>
                     {uploading ? <><Loader2 className="w-3 h-3 animate-spin" /> Subiendo...</> : <><Upload className="w-3 h-3" /> Subir foto</>}
                   </button>
                 </div>
@@ -466,11 +466,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onSelectPlayer(p.id);
                     }
                   }}
-                    className={`flex items-center gap-3 p-2 md:p-2.5 rounded-lg cursor-pointer transition-all border ${
+                    className={`flex items-center gap-3 rounded-[1rem] p-2 md:p-2.5 cursor-pointer transition-all border ${
                       subMode ? (rec ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-amber-500/20 hover:bg-amber-500/10')
-                      : selectedPlayerId === p.id ? `${cardBg} border-yellow-500/50 shadow-md`
-                      : `${isDark ? 'bg-slate-900/50' : 'bg-white/50'} border-transparent ${hoverCard}`}`}>
-                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                      : selectedPlayerId === p.id ? `${cardBg} border-yellow-500/60 shadow-[0_12px_30px_rgba(234,179,8,0.15)]`
+                      : `${isDark ? 'bg-white/[0.035]' : 'bg-white/44'} border-transparent ${hoverCard}`}`}>
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-800 border border-white/20 overflow-hidden flex items-center justify-center shrink-0 shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
                       {p.photoUrl ? <img src={p.photoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-400">{p.number}</span>}
                     </div>
                     <div className="flex-1 truncate">
@@ -504,11 +504,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setCoachEditOpen(false);
                   onSelectPlayer(p.id);
                 }}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2 transition-all md:p-2.5 ${
+                className={`flex cursor-pointer items-center gap-3 rounded-[1rem] border p-2 transition-all md:p-2.5 ${
                   selectedPlayerId === p.id ? `${cardBg} border-red-500/50 shadow-md` : `${isDark ? 'bg-red-950/30' : 'bg-red-50'} border-red-500/20 ${hoverCard}`
                 }`}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-red-900/50 bg-slate-800 md:h-11 md:w-11">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-red-900/50 bg-slate-800 md:h-11 md:w-11">
                   {p.photoUrl ? <img src={p.photoUrl} alt="" className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-red-300">{p.number}</span>}
                 </div>
                 <div className="min-w-0 flex-1 truncate">
@@ -527,8 +527,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Director técnico</h3>
 
           {!coachEditOpen && (
-            <div className={`${cardBg} rounded-xl p-3 border flex items-center gap-3 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-800 border border-slate-600 shrink-0 flex items-center justify-center">
+            <div className={`${cardBg} rounded-[1.15rem] p-3 border flex items-center gap-3`}>
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-white/20 shrink-0 flex items-center justify-center shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
                 {coachPhotoUrl ? (
                   <img src={coachPhotoUrl} alt="" className="w-full h-full object-cover object-top" draggable={false} />
                 ) : (
@@ -644,7 +644,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop sidebar */}
-      <div className={`${showDesktop ? 'hidden md:flex' : 'hidden'} flex-col h-full w-full max-w-[340px] lg:max-w-[360px] backdrop-blur-md border-r overflow-hidden shadow-2xl transition-colors duration-300 ${sidebarBg}`}>
+      <div className={`${showDesktop ? 'hidden md:flex' : 'hidden'} glass-panel flex-col h-full w-full max-w-[340px] lg:max-w-[365px] border-r overflow-hidden transition-colors duration-300 ${sidebarBg}`}>
         {content}
       </div>
 
@@ -656,7 +656,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />
             <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[360px] z-50 md:hidden flex flex-col ${sidebarBg} backdrop-blur-md shadow-2xl`}>
+              className={`glass-panel fixed top-0 left-0 bottom-0 w-[88vw] max-w-[370px] z-50 md:hidden flex flex-col ${sidebarBg}`}>
               {content}
             </motion.div>
           </>
@@ -673,9 +673,9 @@ const PlayerRow: React.FC<{
   onClick: () => void; actionBtn: React.ReactNode;
 }> = ({ player, isSelected, isDark, cardBg, hoverCard, mutedText, onClick, actionBtn }) => (
   <div onClick={onClick}
-    className={`flex items-center gap-3 p-2 md:p-2.5 rounded-lg cursor-pointer transition-all border ${
-      isSelected ? `${cardBg} border-yellow-500/50 shadow-md` : `${isDark ? 'bg-slate-900/50' : 'bg-white/50'} border-transparent ${hoverCard}`}`}>
-    <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+    className={`flex items-center gap-3 rounded-[1rem] p-2 md:p-2.5 cursor-pointer transition-all border ${
+      isSelected ? `${cardBg} border-yellow-500/60 shadow-[0_12px_30px_rgba(234,179,8,0.15)]` : `${isDark ? 'bg-white/[0.035]' : 'bg-white/44'} border-transparent ${hoverCard}`}`}>
+    <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-800 border border-white/20 overflow-hidden flex items-center justify-center shrink-0 shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
       {player.photoUrl ? <img src={player.photoUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-400">{player.number}</span>}
     </div>
     <div className="flex-1 truncate">
