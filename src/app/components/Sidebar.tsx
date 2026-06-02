@@ -63,6 +63,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [subMode, setSubMode] = useState<string | null>(null);
   const [showBench, setShowBench] = useState(true);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    calledUp: true,
+    captain: true,
+    player: true,
+    starters: true,
+    sentOff: true,
+    coach: true,
+  });
   /** Solo al pulsar el lápiz se abre el panel "Editar jugador". */
   const [editOpen, setEditOpen] = useState(false);
   /** Misma idea que jugadores: fila compacta + lápiz → panel de edición. */
@@ -173,6 +181,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const inputBg = isDark ? 'bg-slate-950/70 border-white/10 text-white' : 'bg-white/82 border-slate-200 text-slate-950';
   const mutedText = isDark ? 'text-slate-400' : 'text-gray-500';
   const hoverCard = isDark ? 'hover:bg-white/[0.08] hover:border-emerald-300/30' : 'hover:bg-white hover:border-emerald-200';
+  const isSectionOpen = (key: string) => openSections[key] ?? true;
+  const toggleSection = (key: string) => setOpenSections((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
+  const sectionHeaderClass = `flex w-full items-center justify-between gap-2 rounded-[0.95rem] border px-3 py-2 text-left transition-colors ${
+    isDark ? 'border-white/10 bg-white/[0.04] hover:bg-white/[0.07]' : 'border-white/80 bg-white/55 hover:bg-white/85'
+  }`;
+  const sectionTitleClass = `font-display text-[11px] font-black uppercase tracking-[0.18em] ${mutedText}`;
 
   const content = (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -194,7 +208,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
       {savedTacticsPanel ? <div className="relative z-[30]">{savedTacticsPanel}</div> : null}
       {formationsPanel}
-      {calledUpPanel ? <div className="relative z-[30]">{calledUpPanel}</div> : null}
+      {calledUpPanel ? (
+        <div className="relative z-[30] border-b border-white/10 p-3">
+          <button type="button" onClick={() => toggleSection('calledUp')} className={sectionHeaderClass} aria-expanded={isSectionOpen('calledUp')}>
+            <span className={sectionTitleClass}>Convocados</span>
+            {isSectionOpen('calledUp') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+          </button>
+          {isSectionOpen('calledUp') && <div className="mt-3">{calledUpPanel}</div>}
+        </div>
+      ) : null}
       <div className={`border-b px-4 py-4 md:px-5 flex justify-between items-center ${isDark ? 'border-white/10 bg-slate-950/42' : 'border-emerald-950/10 bg-white/42'}`}>
         <div>
           <h2 className="font-display text-lg md:text-xl font-black uppercase tracking-[0.18em] text-emerald-500">Plantilla</h2>
@@ -215,9 +237,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
-        <div
-          className={`rounded-xl border p-3 ${cardBg} ${isDark ? 'border-amber-500/25 bg-amber-500/[0.06]' : 'border-amber-200 bg-amber-50/40'}`}
-        >
+        <div className={`rounded-xl border p-3 ${cardBg} ${isDark ? 'border-amber-500/25 bg-amber-500/[0.06]' : 'border-amber-200 bg-amber-50/40'}`}>
+          <button type="button" onClick={() => toggleSection('captain')} className="mb-2 flex w-full items-center justify-between gap-2 text-left" aria-expanded={isSectionOpen('captain')}>
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-amber-400' : 'text-amber-800'}`}>Capitán</span>
+            {isSectionOpen('captain') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+          </button>
+          {isSectionOpen('captain') && (
+          <>
           <button
             type="button"
             disabled={pitchPlayers.length === 0}
@@ -306,9 +332,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
             </div>
           )}
+          </>
+          )}
         </div>
 
-        {isAdding && (
+        {(isAdding || selectedPlayer) && (
+          <button type="button" onClick={() => toggleSection('player')} className={sectionHeaderClass} aria-expanded={isSectionOpen('player')}>
+            <span className={sectionTitleClass}>{isAdding ? 'Nuevo jugador' : 'Jugador seleccionado'}</span>
+            {isSectionOpen('player') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+          </button>
+        )}
+
+        {isAdding && isSectionOpen('player') && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className={`${cardBg} rounded-[1.15rem] p-4 border border-emerald-500/30`}>
             <h3 className="text-sm font-bold mb-3 text-emerald-400">Agregar Jugador</h3>
             <form onSubmit={handleAddNew} className="space-y-3">
@@ -324,7 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </motion.div>
         )}
 
-        {selectedPlayer && !isAdding && !editOpen && (
+        {selectedPlayer && !isAdding && !editOpen && isSectionOpen('player') && (
           <div className={`${cardBg} rounded-[1.15rem] p-3 border flex items-center gap-3`}>
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-white/20 shrink-0 shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
               {selectedPlayer.photoUrl ? <img src={selectedPlayer.photoUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-500 font-black">{selectedPlayer.number}</div>}
@@ -347,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {selectedPlayer && !isAdding && editOpen && (
+        {selectedPlayer && !isAdding && editOpen && isSectionOpen('player') && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className={`${cardBg} rounded-xl p-4 md:p-5 border border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.1)] relative overflow-hidden`}>
             <div className="absolute top-0 right-0 p-3 opacity-10"><span className="text-5xl md:text-6xl font-black">{selectedPlayer.number}</span></div>
@@ -430,8 +465,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Titulares */}
         <div className="space-y-1.5">
-          <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Titulares ({pitchPlayers.length}/{maxOnPitch})</h3>
-          {pitchPlayers.map(p => (
+          <button type="button" onClick={() => toggleSection('starters')} className={sectionHeaderClass} aria-expanded={isSectionOpen('starters')}>
+            <span className={sectionTitleClass}>Titulares ({pitchPlayers.length}/{maxOnPitch})</span>
+            {isSectionOpen('starters') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+          </button>
+          {isSectionOpen('starters') && pitchPlayers.map(p => (
             <PlayerRow key={p.id} player={p} isSelected={selectedPlayerId === p.id} isDark={isDark}
               cardBg={cardBg} hoverCard={hoverCard} mutedText={mutedText}
               onClick={() => {
@@ -450,9 +488,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Suplentes */}
         <div className="space-y-1.5 mt-3">
-          <button onClick={() => setShowBench(!showBench)} className="flex items-center gap-2 w-full px-1">
-            <h3 className={`text-xs font-bold uppercase tracking-widest ${mutedText}`}>Suplentes ({benchPlayers.length})</h3>
-            {showBench ? <ChevronUp className={`w-3 h-3 ${mutedText}`} /> : <ChevronDown className={`w-3 h-3 ${mutedText}`} />}
+          <button onClick={() => setShowBench(!showBench)} className={sectionHeaderClass} aria-expanded={showBench}>
+            <span className={sectionTitleClass}>Suplentes ({benchPlayers.length})</span>
+            {showBench ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
           </button>
           <AnimatePresence>
             {showBench && sortedBench.map(p => {
@@ -494,10 +532,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {sentOffPlayers.length > 0 && (
           <div className="mt-3 space-y-1.5">
-            <h3 className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-red-400/90">
-              Expulsados ({sentOffPlayers.length})
-            </h3>
-            {sentOffPlayers.map((p) => (
+            <button type="button" onClick={() => toggleSection('sentOff')} className={sectionHeaderClass} aria-expanded={isSectionOpen('sentOff')}>
+              <span className="font-display text-[11px] font-black uppercase tracking-[0.18em] text-red-400/90">Expulsados ({sentOffPlayers.length})</span>
+              {isSectionOpen('sentOff') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+            </button>
+            {isSectionOpen('sentOff') && sentOffPlayers.map((p) => (
               <div
                 key={p.id}
                 onClick={() => {
@@ -524,9 +563,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 px-1 ${mutedText}`}>Director técnico</h3>
+          <button type="button" onClick={() => toggleSection('coach')} className={sectionHeaderClass} aria-expanded={isSectionOpen('coach')}>
+            <span className={sectionTitleClass}>Director técnico</span>
+            {isSectionOpen('coach') ? <ChevronUp className={`h-4 w-4 ${mutedText}`} /> : <ChevronDown className={`h-4 w-4 ${mutedText}`} />}
+          </button>
 
-          {!coachEditOpen && (
+          {isSectionOpen('coach') && !coachEditOpen && (
             <div className={`${cardBg} rounded-[1.15rem] p-3 border flex items-center gap-3`}>
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-white/20 shrink-0 flex items-center justify-center shadow-[0_8px_18px_rgba(15,23,42,0.16)]">
                 {coachPhotoUrl ? (
@@ -558,7 +600,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {coachEditOpen && (
+          {isSectionOpen('coach') && coachEditOpen && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

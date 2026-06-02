@@ -694,11 +694,16 @@ const PlayerToken: React.FC<{
         aria-hidden
       />
 
-      <div className="relative">
+      <div
+        data-clean-capture
+        className={`relative w-[62px] rounded-[14px] bg-gradient-to-b from-amber-100 via-yellow-500 to-amber-800 p-[2px] shadow-[0_12px_22px_rgba(0,0,0,0.36)] transition-all duration-200 md:w-[78px] md:rounded-[18px] ${
+          isSelected ? 'scale-110 ring-2 ring-yellow-300' : ''
+        } ${swapHighlight ? 'ring-2 ring-amber-200' : ''}`}
+      >
         {isCaptain && (
           <span
             data-clean-capture
-            className="absolute -top-0.5 -left-0.5 z-20 w-5 h-5 md:w-6 md:h-6 rounded-full bg-amber-500 text-[8px] md:text-[9px] font-black text-black flex items-center justify-center border-2 border-black/50 pointer-events-none"
+            className="absolute -left-2 -top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black/50 bg-amber-400 text-[8px] font-black text-black shadow-md md:h-6 md:w-6 md:text-[9px]"
             title="Capitán"
           >
             C
@@ -707,7 +712,7 @@ const PlayerToken: React.FC<{
         {sideArrow && (
           <div
             data-clean-capture
-            className="pointer-events-none absolute -top-1 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/60 bg-black/90 md:-top-1.5 md:-right-2.5 md:h-7 md:w-7"
+            className="pointer-events-none absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/70 bg-black/90 shadow-md md:-right-2.5 md:-top-2.5 md:h-7 md:w-7"
             title={sideArrow === 'left' ? 'Banda izquierda' : 'Banda derecha'}
           >
             {sideArrow === 'left' ? (
@@ -717,53 +722,43 @@ const PlayerToken: React.FC<{
             )}
           </div>
         )}
-        <div
-          data-clean-capture
-          className={`pitch-token-face w-14 h-14 md:w-[72px] md:h-[72px] rounded-full ${positionBorderColor(player.position, isSelected, swapHighlight)} overflow-hidden transition-all duration-200 bg-slate-800 flex items-center justify-center ${isSelected ? 'scale-110' : ''}`}
-        >
-          {player.photoUrl ? (
-            <img
-              src={toProxyImageUrl(player.photoUrl)}
-              alt={player.name}
-              className="w-full h-full object-cover object-top pointer-events-none"
-              draggable={false}
-              crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
-              onError={(e) => {
-                const current = e.currentTarget.currentSrc || e.currentTarget.src;
-                const viaProxy = toProxyImageUrl(player.photoUrl);
-                if (player.photoUrl && current !== viaProxy) {
-                  e.currentTarget.src = viaProxy;
-                }
-              }}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-slate-700 to-slate-900 flex items-center justify-center">
-              <span className="text-white/70 font-black text-base md:text-lg pointer-events-none">{player.number}</span>
+        <div className="relative overflow-hidden rounded-[12px] bg-gradient-to-b from-[#f8e58d] via-[#d6a929] to-[#7c4f0c] p-1 md:rounded-[16px] md:p-1.5">
+          <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_50%_0%,white,transparent_42%),linear-gradient(135deg,transparent_18%,rgba(255,255,255,.55)_19%,transparent_20%,transparent_58%,rgba(255,255,255,.35)_59%,transparent_60%)]" />
+          <div className="relative z-10 flex items-start justify-between gap-1">
+            <div className="rounded-md bg-black/80 px-1.5 py-0.5 text-center leading-none text-white shadow-sm md:px-2">
+              <div className="text-[12px] font-black md:text-[15px]">{player.number}</div>
+              <div className="mt-0.5 text-[7px] font-black tracking-tighter text-amber-200 md:text-[8px]">{player.position}</div>
             </div>
-          )}
+          </div>
+          <div
+            data-clean-capture
+            className={`pitch-token-face relative z-10 mx-auto -mt-1 flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full border-[2.5px] bg-slate-800 shadow-[0_8px_16px_rgba(0,0,0,.35)] md:h-[58px] md:w-[58px] ${positionBorderColor(player.position, false, false)}`}
+          >
+            {player.photoUrl ? (
+              <img
+                src={toProxyImageUrl(player.photoUrl)}
+                alt={player.name}
+                className="h-full w-full object-cover object-top pointer-events-none"
+                draggable={false}
+                crossOrigin={/^https?:\/\//i.test(player.photoUrl) ? 'anonymous' : undefined}
+                onError={(e) => {
+                  const current = e.currentTarget.currentSrc || e.currentTarget.src;
+                  const viaProxy = toProxyImageUrl(player.photoUrl);
+                  if (player.photoUrl && current !== viaProxy) {
+                    e.currentTarget.src = viaProxy;
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-slate-700 to-slate-950">
+                <span className="text-base font-black text-white/70 pointer-events-none md:text-lg">{player.number}</span>
+              </div>
+            )}
+          </div>
+          <div className="relative z-10 mt-1 rounded-md bg-black/82 px-1 py-0.5 text-center text-[7px] font-black uppercase leading-tight text-white shadow-sm md:text-[8px]">
+            <span className="block truncate">{player.name.split(/\s+/).slice(0, 2).join(' ')}</span>
+          </div>
         </div>
-        <div
-          data-clean-capture
-          className="pointer-events-none absolute -bottom-1 -left-2 z-10 flex h-6 min-h-6 min-w-6 max-w-[2.85rem] items-center justify-center rounded-full border-2 border-white/60 bg-black/90 px-1 md:-bottom-1.5 md:-left-2.5 md:h-7 md:max-w-[3.1rem]"
-          title={`Posición: ${player.position}`}
-        >
-          <span className="whitespace-nowrap text-[8px] font-black leading-none tracking-tighter text-white md:text-[10px]">
-            {player.position}
-          </span>
-        </div>
-        <div
-          data-clean-capture
-          className="pointer-events-none absolute -bottom-1 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white/60 bg-black/90 md:-bottom-1.5 md:-right-2.5 md:h-7 md:w-7"
-        >
-          <span className="text-[10px] font-black text-white md:text-xs">{player.number}</span>
-        </div>
-      </div>
-      <div
-        data-clean-capture
-        title={player.name}
-        className={`max-w-[min(100vw,200px)] truncate px-2 py-0.5 text-center text-[9px] font-bold leading-tight whitespace-nowrap md:text-[11px] md:leading-tight ${isSelected ? 'rounded-md bg-yellow-500 text-black' : 'rounded-md bg-black/75 text-white backdrop-blur-sm'} pointer-events-none`}
-      >
-        {player.name}
       </div>
     </motion.div>
   );

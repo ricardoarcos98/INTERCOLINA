@@ -1675,7 +1675,7 @@ function AppContent() {
       >
         {/* Header */}
         {!focusMode && (
-        <header className={`glass-panel mb-3 flex w-full max-w-[560px] items-center justify-between gap-3 rounded-[1.6rem] border px-3 py-3 max-sm:flex-col max-sm:items-stretch xl:max-w-[720px] 2xl:max-w-[820px] ${
+        <header className={`glass-panel relative z-[120] mb-3 flex w-full max-w-[560px] items-center justify-between gap-3 rounded-[1.6rem] border px-3 py-3 max-sm:flex-col max-sm:items-stretch xl:max-w-[720px] 2xl:max-w-[820px] ${
           isDark ? 'border-white/10 bg-slate-950/52' : 'border-white/80 bg-white/68'
         }`}>
           <div className="flex min-w-0 items-center gap-3">
@@ -1753,7 +1753,7 @@ function AppContent() {
             <div className="relative">
               <button type="button" onClick={() => setShowGrassMenu(!showGrassMenu)} className={btn()} title="Color del césped"><Palette className="w-4 h-4" /></button>
               {showGrassMenu && (
-                <div className={`absolute right-0 top-11 z-50 max-h-[min(70vh,420px)] w-[min(calc(100vw-2rem),280px)] overflow-y-auto rounded-xl border p-3 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'}`}>
+                <div className={`absolute right-0 top-12 z-[240] max-h-[min(70vh,420px)] w-[min(calc(100vw-2rem),280px)] overflow-y-auto rounded-[1.25rem] border p-3 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl ${isDark ? 'bg-slate-950/95 border-white/10' : 'bg-white/95 border-white/80'}`}>
                   <p className={`text-[10px] font-bold uppercase tracking-wider ${mut}`}>Colores</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {GRASS_COLORS.map(c => (
